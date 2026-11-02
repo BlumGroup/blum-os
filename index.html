@@ -926,16 +926,16 @@ function pintarReservas(rs){
   const idsProps = {}; (cat&&cat.propiedades||[]).forEach(p => { if (String(p.modalidades||'').indexOf('Renta corta')>=0) idsProps[p.id]=1; }); vivas.forEach(r => idsProps[r.propiedad_id]=1);
   const nProps = $('rFiltroProp').value ? 1 : (Object.keys(idsProps).length || 1);
   $('rTot').innerHTML = '<div><span class="eti">Reservas</span><b>'+vivas.length+'</b></div><div><span class="eti">Noches en el rango</span><b>'+noches+'</b></div>'+
-    '<div><span class="eti">Ocupación</span><b>'+Math.round(noches*100/(dias*nProps))+'%</b></div><div><span class="eti">Neto Airbnb/directo</span><b class="verde">'+cop(vivas.reduce((t,r)=>t+r.neto,0))+'</b></div>';
+    '<div><span class="eti">Ocupación</span><b>'+Math.round(noches*100/(dias*nProps))+'%</b></div><div><span class="eti">Huéspedes</span><b>'+vivas.reduce((t,r)=>t+(Number(r.personas)||0),0)+'</b></div><div><span class="eti">Neto Airbnb/directo</span><b class="verde">'+cop(vivas.reduce((t,r)=>t+r.neto,0))+'</b></div>';
   if (resVista==='cal') return pintarCalendario(rs, de, ha);
   if (!rs.length) { $('rTabla').innerHTML='<div class="vacio">Sin reservas en este rango</div>'; return; }
   let html='', mesAct='';
   rs.forEach(r => {
     const mes=r.checkin.slice(0,7);
     if (mes!==mesAct) { if (mesAct) html+='</table>'; mesAct=mes; const d=pISO(r.checkin);
-      html+='<div class="mes-tit">'+MESL[d.getMonth()]+' '+d.getFullYear()+'</div><table class="tabla"><tr><th>Propiedad</th><th>Huésped</th><th>Llegada → Salida</th><th class="num-r">Noches</th><th class="num-r">Pers.</th><th>Canal</th><th class="num-r">Neto</th></tr>'; }
+      html+='<div class="mes-tit">'+MESL[d.getMonth()]+' '+d.getFullYear()+'</div><table class="tabla"><tr><th>Propiedad</th><th>Huésped</th><th>Llegada → Salida</th><th class="num-r">Noches</th><th class="num-r">Huéspedes</th><th>Canal</th><th class="num-r">Neto</th></tr>'; }
     const conAnio = r.checkin.slice(0,4)!==anioHoy || r.checkout.slice(0,4)!==r.checkin.slice(0,4);
-    html+='<tr class="click'+(r.estado_reserva==='Cancelada'?' cancel':'')+'" data-c="'+esc(r.codigo)+'"><td>'+esc(r.propiedad)+'</td><td>'+esc(r.huesped)+'</td><td class="fechas"><b>'+fechaLarga(r.checkin,conAnio)+'</b> → <b>'+fechaLarga(r.checkout,conAnio)+'</b></td><td class="num-r">'+r.noches+'</td><td class="num-r">'+(r.personas||'')+'</td><td>'+esc(r.plataforma)+(r.estado_reserva==='Cancelada'?' · cancelada':'')+'</td><td class="num-r">'+cop(r.neto)+'</td></tr>';
+    html+='<tr class="click'+(r.estado_reserva==='Cancelada'?' cancel':'')+'" data-c="'+esc(r.codigo)+'"><td>'+esc(r.propiedad)+'</td><td>'+esc(r.huesped)+'</td><td class="fechas"><b>'+fechaLarga(r.checkin,conAnio)+'</b> → <b>'+fechaLarga(r.checkout,conAnio)+'</b></td><td class="num-r">'+r.noches+'</td><td class="num-r">'+(r.personas||'<span class="eti">—</span>')+'</td><td>'+esc(r.plataforma)+(r.estado_reserva==='Cancelada'?' · cancelada':'')+'</td><td class="num-r">'+cop(r.neto)+'</td></tr>';
   });
   $('rTabla').innerHTML = html+'</table>';
   $('rTabla').querySelectorAll('tr[data-c]').forEach(t => t.onclick = () => fichaReserva(rs.find(r => r.codigo===t.dataset.c)));
@@ -966,7 +966,7 @@ function pintarCalendario(rs, de, ha){
       const a=Math.max(0, Math.round((pISO(r.checkin)-ini)/86400000)), b=Math.min(n, Math.round((pISO(r.checkout)-ini)/86400000));
       if (b<=a) return;
       const cls = r.estado_reserva==='Cancelada' ? ' can' : (r.plataforma==='Directo' ? ' dir' : '');
-      g+='<div class="bar'+cls+'" data-c="'+esc(r.codigo)+'" title="'+esc(r.huesped+' · '+fechaLarga(r.checkin)+' → '+fechaLarga(r.checkout)+' · '+r.noches+' noches')+'" style="grid-row:'+fila+';grid-column:'+(a+2)+' / '+(b+2)+'">'+esc(r.huesped.split(' ')[0])+'</div>';
+      g+='<div class="bar'+cls+'" data-c="'+esc(r.codigo)+'" title="'+esc(r.huesped+' · '+fechaLarga(r.checkin)+' → '+fechaLarga(r.checkout)+' · '+r.noches+' noches'+(r.personas?' · '+r.personas+' huéspedes':''))+'" style="grid-row:'+fila+';grid-column:'+(a+2)+' / '+(b+2)+'">'+esc(r.huesped.split(' ')[0])+(r.personas?' · '+r.personas:'')+'</div>';
     });
   });
   g+='</div>';
@@ -980,7 +980,7 @@ function fichaReserva(r){
   const conAnio=true;
   modal(r.huesped, '<div class="sub">'+esc(r.codigo)+' · '+esc(r.plataforma)+'</div>'+
     dato('Propiedad', esc(r.propiedad))+dato('Llegada', fechaLarga(r.checkin,conAnio))+dato('Salida', fechaLarga(r.checkout,conAnio))+
-    dato('Noches', r.noches)+dato('Personas', r.personas||'—')+
+    dato('Noches', r.noches)+dato('Huéspedes', r.personas||'—')+
     (r.tarifa_noches?dato('Tarifa noches', cop(r.tarifa_noches)):'')+(r.tarifa_aseo?dato('Aseo', cop(r.tarifa_aseo)):'')+
     dato('Neto', '<b>'+cop(r.neto)+'</b>')+dato('Pago recibido', r.pagado?cop(r.pagado):'Pendiente')+
     dato('Estado', esc(r.estado_reserva)+' · '+esc(r.estado)), [{ t:'Cerrar', sec:true, fn:cerrarModal }]);
