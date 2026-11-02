@@ -153,6 +153,40 @@ textarea{min-height:70px;resize:vertical}
   .rejilla{grid-template-columns:1fr}
   .saludo{font-size:1.6rem}
 }
+
+/* Directorio */
+.herr{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.herr input,.herr select{width:auto;min-width:180px}
+.herr .btn{margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.ficha{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.ficha:hover{border-color:var(--sage);box-shadow:0 4px 18px rgba(0,0,0,.05)}
+.ficha .n{font-weight:600;font-size:1rem}
+.ficha .p{color:var(--muted);font-size:.84rem;margin-top:2px}
+.ficha .l{font-size:.82rem;margin-top:10px;display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:.7rem;padding:3px 8px;border-radius:20px;background:var(--cream2);color:var(--ink);white-space:nowrap}
+.chip.v{background:var(--sage-l);color:var(--sage)}.chip.a{background:var(--terra-l);color:#7d5f43}.chip.x{background:var(--red-l);color:var(--red)}
+.tabla tr.click{cursor:pointer}.tabla tr.click:hover td{background:var(--cream)}
+.wa{color:var(--sage);text-decoration:none;font-weight:500}
+.tabla-wrap{overflow-x:auto}
+.grupo{font-weight:600;font-size:.9rem;margin:18px 0 8px}
+.grupo:first-child{margin-top:0}
+
+/* Modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.modal .caja{background:var(--cream);border-radius:14px;width:100%;max-width:620px;padding:22px}
+.modal .cab{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:6px}
+.modal h2{font-size:1.25rem;font-weight:600}
+.modal .cerrar{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);line-height:1}
+.modal .sub{color:var(--muted);font-size:.84rem;margin-bottom:10px}
+.modal .pie{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.modal .seccion{margin-top:18px}
+.modal .seccion h3{font-size:.9rem;font-weight:600;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.dato{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.86rem}
+.dato span:first-child{color:var(--muted)}
+.dos{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media (max-width:600px){ .dos{grid-template-columns:1fr} .herr input,.herr select{min-width:0;flex:1} .herr .btn{margin-left:0;width:100%} }
 </style>
 </head>
 <body>
@@ -319,6 +353,54 @@ textarea{min-height:70px;resize:vertical}
       </section>
 
       <!-- PRÓXIMAMENTE -->
+      <!-- PROPIEDADES -->
+      <section id="m-propiedades" class="oculto">
+        <div class="herr">
+          <input id="fpBuscar" placeholder="Buscar propiedad o propietario">
+          <select id="fpEstado"><option value="activas">Activas</option><option value="todas">Todas</option></select>
+          <button class="btn chico" id="bNuevaProp">＋ Nueva propiedad</button>
+        </div>
+        <div class="grid" id="gProps"></div>
+      </section>
+
+      <!-- PROPIETARIOS -->
+      <section id="m-propietarios" class="oculto">
+        <div class="herr">
+          <input id="foBuscar" placeholder="Buscar propietario">
+          <span class="eti" style="margin-left:auto">Un propietario nuevo se crea con “Nueva propiedad”</span>
+        </div>
+        <div class="card tabla-wrap"><div id="tProps"></div></div>
+      </section>
+
+      <!-- CONTRATOS -->
+      <section id="m-contratos" class="oculto">
+        <div class="herr">
+          <select id="fcEstado"><option value="vigentes">Vigentes</option><option value="todos">Todos</option></select>
+          <select id="fcTipo"><option value="">Propiedades y clientes</option><option value="Propiedad">Propiedades</option><option value="Cliente">Clientes</option></select>
+          <button class="btn chico" id="bNuevoContrato">＋ Nuevo contrato</button>
+        </div>
+        <div class="card tabla-wrap"><div id="tContratos"></div></div>
+        <p class="eti" style="margin-top:10px">Si cambian las condiciones, cierra el contrato con “vigente hasta” y crea uno nuevo: así los meses anteriores no se recalculan.</p>
+      </section>
+
+      <!-- SERVICIOS -->
+      <section id="m-servicios" class="oculto">
+        <div class="herr">
+          <select id="fsProp"></select>
+          <button class="btn chico" id="bNuevoServ">＋ Nuevo servicio</button>
+        </div>
+        <div class="card tabla-wrap"><div id="tServ"></div></div>
+      </section>
+
+      <!-- CLIENTES -->
+      <section id="m-clientes" class="oculto">
+        <div class="herr">
+          <select id="fclEstado"><option value="activos">Activos</option><option value="todos">Todos</option></select>
+          <button class="btn chico" id="bNuevoCliente">＋ Nuevo cliente</button>
+        </div>
+        <div class="card tabla-wrap"><div id="tClientes"></div></div>
+      </section>
+
       <section id="m-prox" class="oculto">
         <div class="prox">
           <div class="ico" id="xIco"></div>
@@ -363,11 +445,11 @@ const MODULOS = [
   { id:'bandeja', sec:'General', t:'Bandeja', i:'bandeja', todos:true },
   { id:'movimientos', sec:'Operación', t:'Movimientos', i:'mov', todos:true },
   { id:'reservas', sec:'Operación', t:'Reservas', i:'reservas', todos:true },
-  { id:'servicios', sec:'Operación', t:'Servicios', i:'servicios', fase:'Fase 2', d:'Vencimientos de energía, agua, gas, internet y administración de cada propiedad, con aviso antes del día límite y registro del pago.' },
-  { id:'propiedades', sec:'Directorio', t:'Propiedades', i:'casa', fase:'Fase 2', d:'Ficha de cada propiedad: propietario, modalidades, contrato vigente, anuncios de Airbnb y servicios. Editable desde aquí, sin entrar al Sheet.' },
-  { id:'propietarios', sec:'Directorio', t:'Propietarios', i:'personas', fase:'Fase 2', d:'Directorio de propietarios con correos, teléfonos y autorización de WhatsApp, y el envío de acceso a su portal.' },
-  { id:'contratos', sec:'Directorio', t:'Contratos', i:'contrato', fase:'Fase 2', d:'Condiciones negociadas por propiedad y cliente, con su vigencia: comisión, base, modelo de aseo, IVA y 4x1000.' },
-  { id:'clientes', sec:'Directorio', t:'Clientes Consultoría', i:'maletin', fase:'Fase 4', d:'Retainers de Consultoría, cobros esperados y cuentas por cobrar con días de mora.' },
+  { id:'servicios', sec:'Operación', t:'Servicios', i:'servicios', d:'Vencimientos de energía, agua, gas, internet y administración de cada propiedad, con aviso antes del día límite y registro del pago.' },
+  { id:'propiedades', sec:'Directorio', t:'Propiedades', i:'casa', d:'Ficha de cada propiedad: propietario, modalidades, contrato vigente, anuncios de Airbnb y servicios. Editable desde aquí, sin entrar al Sheet.' },
+  { id:'propietarios', sec:'Directorio', t:'Propietarios', i:'personas', d:'Directorio de propietarios con correos, teléfonos y autorización de WhatsApp, y el envío de acceso a su portal.' },
+  { id:'contratos', sec:'Directorio', t:'Contratos', i:'contrato', d:'Condiciones negociadas por propiedad y cliente, con su vigencia: comisión, base, modelo de aseo, IVA y 4x1000.' },
+  { id:'clientes', sec:'Directorio', t:'Clientes Consultoría', i:'maletin', d:'Retainers de Consultoría, cobros esperados y cuentas por cobrar con días de mora.' },
   { id:'caja', sec:'Finanzas', t:'Caja y tarjetas', i:'caja', fase:'Fase 4', d:'Saldo NU, deuda TC NU, pendiente por transferir a Mauro y Caja libre de BLÜM. Confirmación de los Pagos Airbnb contra el banco.' },
   { id:'liquidaciones', sec:'Finanzas', t:'Liquidaciones', i:'liquida', fase:'Fase 5', d:'Cierre mensual por propietario, saldo acumulado, pagos y depósitos, y envío del reporte con previsualización.' },
   { id:'pyg', sec:'Finanzas', t:'P&G', i:'pyg', fase:'Fase 4', d:'Estado de resultados por negocio (Inmobiliaria por canal, Consultoría) y consolidado, mes a mes.' },
@@ -377,7 +459,8 @@ const MODULOS = [
   { id:'marketing', sec:'Estrategia', t:'Marketing', i:'mkt', fase:'Siguiente etapa', d:'Inversión en pauta, origen de reservas y clientes, y retorno por canal.' },
   { id:'configuracion', sec:'Configuración', t:'Usuarios y listas', i:'ajustes', fase:'Fase 2', d:'Usuarios y roles, categorías, cuentas y listas del sistema.' }
 ];
-const VISTA = { panel:'m-panel', bandeja:'m-bandeja', movimientos:'m-movimientos', reservas:'m-reservas' };
+const VISTA = { panel:'m-panel', bandeja:'m-bandeja', movimientos:'m-movimientos', reservas:'m-reservas', propiedades:'m-propiedades', propietarios:'m-propietarios', contratos:'m-contratos', servicios:'m-servicios', clientes:'m-clientes' };
+const DIRECTORIO = ['propiedades','propietarios','contratos','servicios','clientes'];
 
 const LS = { tok:'blumos_tok', ses:'blumos_ses', cat:'blumos_cat2', lista:'blumos_lista_', bandeja:'blumos_bandeja', panel:'blumos_panel', res:'blumos_res_' };
 const MAX_ARCH = 10, IMG_MAX = 1600, IMG_CAL = 0.72;
@@ -421,7 +504,7 @@ async function api(accion, datos){
 /* ───── sesión ───── */
 function cerrarSesion(){
   if (token) fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ accion:'logout', token }) }).catch(()=>{});
-  token = null; sesion = null; lsDel(LS.tok); lsDel(LS.ses); lsDel(LS.panel); lsDel(LS.bandeja);
+  token = null; sesion = null; lsDel(LS.tok); lsDel(LS.ses); lsDel(LS.panel); lsDel(LS.bandeja); lsDel('blumos_dir'); dir = null;
   $('vApp').classList.add('oculto'); $('vLogin').classList.remove('oculto');
 }
 $('fLogin').addEventListener('submit', async ev => {
@@ -467,6 +550,7 @@ function ir(id, sub){
   if (m.id==='bandeja') cargarBandeja();
   if (m.id==='movimientos') pestana('tabMov', sub || (estado.edicion ? 'nuevo' : null));
   if (m.id==='reservas') pestana('tabRes', sub);
+  if (DIRECTORIO.indexOf(m.id)>=0) cargarDirectorio();
 }
 function pestana(grupo, t){
   const cont = $(grupo); const btns = cont.querySelectorAll('button');
@@ -784,9 +868,233 @@ $('fRes').addEventListener('submit', async ev => {
   finally { b.disabled=false; b.textContent='Guardar reserva'; }
 });
 
+/* ═════════ DIRECTORIO ═════════ */
+let dir = JSON.parse(lsGet('blumos_dir') || 'null');
+const ETQ = {
+  nombre:'Nombre', correo:'Correo', correo_2:'Segundo correo', telefono:'Celular / WhatsApp', telefono_2:'Segundo celular',
+  autoriza_whatsapp:'¿Autoriza WhatsApp?', activo:'Activo', activa:'Activa', propietario_id:'Propietario', direccion:'Dirección',
+  modalidades:'Disponible para', fecha_inicio:'Fecha de inicio', notas:'Notas', aplica_a:'Aplica a', ref_id:'Propiedad o cliente',
+  modalidad:'Modalidad del contrato', comision_pct:'Comisión BLÜM (%)', base_comision:'Base de comisión', costo_financiero_pct:'Costo financiero (%)',
+  modelo_aseo:'Modelo de aseo', iva_comision_asume:'IVA de la comisión lo asume', gmf_asume:'4x1000 lo asume', retainer_mensual:'Retainer mensual',
+  vigente_desde:'Vigente desde', vigente_hasta:'Vigente hasta', propiedad_id:'Propiedad', servicio:'Servicio', tipo_ref:'Tipo de referencia',
+  referencia:'Referencia de pago', dia_limite:'Día límite de pago', valor_ref:'Valor de referencia', negocio:'Negocio'
+};
+const AYUDA = { modelo_aseo:'A: ingreso y gasto de aseo son de BLÜM · B: el ingreso cubre el gasto, la diferencia es de BLÜM', vigente_hasta:'Déjalo vacío si sigue vigente' };
+
+async function cargarDirectorio(forzar){
+  if (dir && !forzar) pintarDirectorio();
+  else if (!dir) ['gProps','tProps','tContratos','tServ','tClientes'].forEach(id => $(id).innerHTML = esqueleto(3));
+  try { const r = await api('directorio'); dir = r; lsSet('blumos_dir', JSON.stringify(r)); pintarDirectorio(); }
+  catch(e){ toast(e.message, true); }
+}
+function pintarDirectorio(){
+  if (!dir) return;
+  ({ propiedades:pintarPropiedades, propietarios:pintarPropietarios, contratos:pintarContratos, servicios:pintarServicios, clientes:pintarClientes }[estado.modulo] || (()=>{}))();
+}
+const nomProp = id => (dir.propiedades.find(p => p.id===id) || {}).nombre || id;
+const nomDueno = id => (dir.propietarios.find(p => p.id===id) || {}).nombre || id;
+const vigenteDe = refId => dir.contratos.filter(c => c.ref_id===refId && c.vigente);
+const pct = v => v===''||v==null ? '—' : (Math.round(Number(v)*1000)/10)+'%';
+const telWa = t => { const d=String(t||'').replace(/\D/g,''); return d ? '<a class="wa" href="https://wa.me/'+d+'" target="_blank" rel="noopener">'+esc('+'+d.replace(/^(\d{2})(\d{3})(\d{3})(\d+)$/,'$1 $2 $3 $4'))+'</a>' : '<span class="terra">Falta</span>'; };
+function chipActivo(v, o){ const s = o ? 'o' : 'a'; return v==='No' ? '<span class="chip x">Inactiv'+s+'</span>' : '<span class="chip v">Activ'+s+'</span>'; }
+
+/* Propiedades */
+function pintarPropiedades(){
+  const q = $('fpBuscar').value.trim().toLowerCase(), todas = $('fpEstado').value==='todas';
+  const lista = dir.propiedades.filter(p => (todas || p.activa!=='No') && (!q || (p.nombre+' '+nomDueno(p.propietario_id)).toLowerCase().indexOf(q)>=0))
+    .sort((a,b) => (a.activa==='No') - (b.activa==='No') || String(a.nombre).localeCompare(b.nombre));
+  $('gProps').innerHTML = lista.length ? lista.map(p => {
+    const cv = vigenteDe(p.id), nServ = dir.servicios.filter(s => s.propiedad_id===p.id && s.activo!=='No').length;
+    const contrato = cv.length ? cv.map(c => esc(c.modalidad||'')+' '+pct(c.comision_pct)+(c.modelo_aseo?' · aseo '+esc(c.modelo_aseo):' · <span class="terra">sin aseo</span>')).join('<br>') : '<span class="terra">Sin contrato vigente</span>';
+    return '<div class="ficha" data-id="'+esc(p.id)+'"><div class="n">'+esc(p.nombre)+'</div><div class="p">'+esc(nomDueno(p.propietario_id))+'</div>'+
+      '<div class="chips">'+String(p.modalidades||'').split('+').map(m => '<span class="chip">'+esc(m.trim())+'</span>').join('')+chipActivo(p.activa)+'</div>'+
+      '<div class="l"><span>'+contrato+'</span><span class="eti">'+nServ+' servicio'+(nServ===1?'':'s')+'</span></div></div>';
+  }).join('') : '<div class="vacio">Sin resultados</div>';
+  $('gProps').querySelectorAll('.ficha').forEach(f => f.onclick = () => abrirFichaPropiedad(f.dataset.id));
+}
+$('fpBuscar').addEventListener('input', pintarPropiedades); $('fpEstado').addEventListener('change', pintarPropiedades);
+
+function abrirFichaPropiedad(id){
+  const p = dir.propiedades.find(x => x.id===id); if (!p) return;
+  const dueno = dir.propietarios.find(x => x.id===p.propietario_id) || {};
+  const contratos = dir.contratos.filter(c => c.ref_id===id).sort((a,b) => String(b.vigente_desde).localeCompare(String(a.vigente_desde)));
+  const servicios = dir.servicios.filter(s => s.propiedad_id===id);
+  const anuncios = dir.anuncios.filter(a => a.propiedad_id===id);
+  const html =
+    '<div class="dos">'+
+      dato('Propietario', esc(dueno.nombre||'—'))+dato('Celular', telWa(dueno.telefono))+
+      dato('Dirección', esc(p.direccion||'—'))+dato('Disponible para', esc(p.modalidades||'—'))+
+      dato('Inicio', esc(p.fecha_inicio||'—'))+dato('Estado', p.activa==='No'?'Inactiva':'Activa')+
+    '</div>'+(p.notas?'<p class="sub" style="margin-top:8px">'+esc(p.notas)+'</p>':'')+
+    '<div class="seccion"><h3>Contratos <button class="btn sec chico" data-nuevo="contrato">＋ Nuevo</button></h3>'+
+      (contratos.length ? '<table class="tabla">'+contratos.map(c => '<tr class="click" data-c="'+esc(c.id)+'"><td>'+esc(c.modalidad||'—')+'<div class="eti">'+esc(c.vigente_desde||'')+' → '+esc(c.vigente_hasta||'hoy')+'</div></td><td class="num-r">'+pct(c.comision_pct)+'</td><td>'+esc(c.base_comision||'')+'</td><td>'+(c.vigente?'<span class="chip v">Vigente</span>':'<span class="chip">Cerrado</span>')+'</td></tr>').join('')+'</table>' : '<div class="vacio">Sin contratos</div>')+'</div>'+
+    '<div class="seccion"><h3>Servicios <button class="btn sec chico" data-nuevo="servicio">＋ Agregar</button></h3>'+
+      (servicios.length ? '<table class="tabla">'+servicios.map(s => '<tr class="click" data-s="'+esc(s.id)+'"><td>'+esc(s.servicio)+'<div class="eti">'+esc(s.tipo_ref||'')+' '+esc(s.referencia||'')+'</div></td><td>Día '+esc(s.dia_limite||'—')+'</td><td class="num-r">'+(s.valor_ref?cop(s.valor_ref):'')+'</td><td>'+(s.activo==='No'?'<span class="chip">Inactivo</span>':'')+'</td></tr>').join('')+'</table>' : '<div class="vacio">Sin servicios a cargo de BLÜM</div>')+'</div>'+
+    '<div class="seccion"><h3>Anuncios de Airbnb</h3>'+(anuncios.length ? anuncios.map(a => '<div class="dato"><span>'+esc(a.titulo||'Anuncio')+'</span><span>'+esc(a.anuncio_id)+'</span></div>').join('') : '<div class="sub">Sin anuncios mapeados. Se agregan cuando llegue la primera reserva (Fase 3).</div>')+'</div>';
+  const m = modal(p.nombre, html, [{ t:'Editar propiedad', fn:() => abrirEditor('Propiedades', p) }]);
+  m.querySelectorAll('[data-c]').forEach(r => r.onclick = () => abrirEditor('Contratos', dir.contratos.find(c => c.id===r.dataset.c)));
+  m.querySelectorAll('[data-s]').forEach(r => r.onclick = () => abrirEditor('Servicios', dir.servicios.find(s => s.id===r.dataset.s)));
+  m.querySelector('[data-nuevo="contrato"]').onclick = () => abrirEditor('Contratos', null, { aplica_a:'Propiedad', ref_id:id, modalidad: String(p.modalidades||'').split('+')[0].trim(), iva_comision_asume:'BLÜM', gmf_asume:'BLÜM', base_comision:'Neto de plataforma', vigente_desde: hoy() });
+  m.querySelector('[data-nuevo="servicio"]').onclick = () => abrirEditor('Servicios', null, { propiedad_id:id, activo:'Sí' });
+}
+function dato(k, v){ return '<div class="dato"><span>'+k+'</span><span>'+v+'</span></div>'; }
+
+/* Propietarios */
+function pintarPropietarios(){
+  const q = $('foBuscar').value.trim().toLowerCase();
+  const lista = dir.propietarios.filter(p => !q || String(p.nombre).toLowerCase().indexOf(q)>=0).sort((a,b) => (a.activo==='No')-(b.activo==='No') || String(a.nombre).localeCompare(b.nombre));
+  $('tProps').innerHTML = '<table class="tabla"><tr><th>Propietario</th><th>Propiedades</th><th>Correo</th><th>Celular</th><th>WhatsApp</th><th>Estado</th></tr>'+
+    lista.map(p => { const props = dir.propiedades.filter(x => x.propietario_id===p.id).map(x => x.nombre).join(', ');
+      return '<tr class="click" data-id="'+esc(p.id)+'"><td><b>'+esc(p.nombre)+'</b></td><td>'+esc(props||'—')+'</td><td>'+(p.correo?esc(p.correo):'<span class="terra">Falta</span>')+'</td><td>'+telWa(p.telefono)+'</td><td>'+(p.autoriza_whatsapp==='Sí'?'<span class="chip v">Autoriza</span>':'<span class="chip">Pendiente</span>')+'</td><td>'+chipActivo(p.activo,1)+'</td></tr>'; }).join('')+'</table>';
+  $('tProps').querySelectorAll('tr[data-id]').forEach(r => r.onclick = ev => { if (ev.target.closest('a')) return; abrirEditor('Propietarios', dir.propietarios.find(p => p.id===r.dataset.id)); });
+}
+$('foBuscar').addEventListener('input', pintarPropietarios);
+
+/* Contratos */
+function pintarContratos(){
+  const solo = $('fcEstado').value==='vigentes', tipo = $('fcTipo').value;
+  const lista = dir.contratos.filter(c => (!solo || c.vigente) && (!tipo || c.aplica_a===tipo)).sort((a,b) => String(a.ref_nombre).localeCompare(b.ref_nombre) || String(b.vigente_desde).localeCompare(a.vigente_desde));
+  $('tContratos').innerHTML = lista.length ? '<table class="tabla"><tr><th>Propiedad / cliente</th><th>Modalidad</th><th class="num-r">Comisión</th><th>Base</th><th>Aseo</th><th>IVA</th><th>4x1000</th><th class="num-r">Retainer</th><th>Vigencia</th></tr>'+
+    lista.map(c => '<tr class="click" data-id="'+esc(c.id)+'"><td><b>'+esc(c.ref_nombre||c.ref_id)+'</b></td><td>'+esc(c.modalidad||(c.aplica_a==='Cliente'?'Consultoría':'—'))+'</td><td class="num-r">'+(c.aplica_a==='Cliente'?'—':pct(c.comision_pct))+'</td><td>'+esc(c.base_comision||'—')+'</td><td>'+(c.aplica_a==='Cliente'?'—':(c.modelo_aseo?esc(c.modelo_aseo):'<span class="terra">Falta</span>'))+'</td><td>'+esc(c.iva_comision_asume||'—')+'</td><td>'+esc(c.gmf_asume||'—')+'</td><td class="num-r">'+(c.retainer_mensual?cop(c.retainer_mensual):'—')+'</td><td>'+esc(c.vigente_desde||'—')+' → '+esc(c.vigente_hasta||'hoy')+'</td></tr>').join('')+'</table>'
+    : '<div class="vacio">Sin contratos</div>';
+  $('tContratos').querySelectorAll('tr[data-id]').forEach(r => r.onclick = () => abrirEditor('Contratos', dir.contratos.find(c => c.id===r.dataset.id)));
+}
+$('fcEstado').addEventListener('change', pintarContratos); $('fcTipo').addEventListener('change', pintarContratos);
+$('bNuevoContrato').onclick = () => abrirEditor('Contratos', null, { aplica_a:'Propiedad', iva_comision_asume:'BLÜM', gmf_asume:'BLÜM', base_comision:'Neto de plataforma', vigente_desde: hoy() });
+
+/* Servicios */
+function pintarServicios(){
+  const sel = $('fsProp'), act = sel.value;
+  const conServ = dir.propiedades.filter(p => p.activa!=='No');
+  opciones(sel, [{v:'',t:'Todas las propiedades'}].concat(conServ.map(p => ({ v:p.id, t:p.nombre }))), act);
+  const grupos = conServ.filter(p => !sel.value || p.id===sel.value).map(p => ({ p, s: dir.servicios.filter(x => x.propiedad_id===p.id) })).filter(g => g.s.length || sel.value);
+  $('tServ').innerHTML = grupos.length ? grupos.map(g => '<div class="grupo">'+esc(g.p.nombre)+'</div>'+(g.s.length ? '<table class="tabla"><tr><th>Servicio</th><th>Referencia</th><th>Día límite</th><th class="num-r">Valor ref.</th><th>Estado</th></tr>'+
+    g.s.map(s => '<tr class="click" data-id="'+esc(s.id)+'"><td><b>'+esc(s.servicio)+'</b></td><td>'+esc(s.tipo_ref||'')+' '+esc(s.referencia||'')+'</td><td>'+(s.dia_limite?'Día '+esc(s.dia_limite):'<span class="terra">Falta</span>')+'</td><td class="num-r">'+(s.valor_ref?cop(s.valor_ref):'—')+'</td><td>'+(s.activo==='No'?'<span class="chip">Inactivo</span>':'<span class="chip v">Activo</span>')+'</td></tr>').join('')+'</table>' : '<div class="sub">Sin servicios a cargo de BLÜM</div>')).join('')
+    : '<div class="vacio">Ninguna propiedad tiene servicios cargados</div>';
+  $('tServ').querySelectorAll('tr[data-id]').forEach(r => r.onclick = () => abrirEditor('Servicios', dir.servicios.find(s => s.id===r.dataset.id)));
+}
+$('fsProp').addEventListener('change', pintarServicios);
+$('bNuevoServ').onclick = () => abrirEditor('Servicios', null, { propiedad_id: $('fsProp').value, activo:'Sí' });
+
+/* Clientes */
+function pintarClientes(){
+  const todos = $('fclEstado').value==='todos';
+  const lista = dir.clientes.filter(c => todos || c.activo!=='No');
+  $('tClientes').innerHTML = lista.length ? '<table class="tabla"><tr><th>Cliente</th><th>Negocio</th><th>Correo</th><th>Celular</th><th class="num-r">Retainer vigente</th><th>Estado</th></tr>'+
+    lista.map(c => { const cv = vigenteDe(c.id)[0]; return '<tr class="click" data-id="'+esc(c.id)+'"><td><b>'+esc(c.nombre)+'</b><div class="eti">'+esc(c.notas||'')+'</div></td><td>'+esc(c.negocio)+'</td><td>'+esc(c.correo||'—')+'</td><td>'+telWa(c.telefono)+'</td><td class="num-r">'+(cv&&cv.retainer_mensual?cop(cv.retainer_mensual):'—')+'</td><td>'+chipActivo(c.activo,1)+'</td></tr>'; }).join('')+'</table>'
+    : '<div class="vacio">Sin clientes</div>';
+  $('tClientes').querySelectorAll('tr[data-id]').forEach(r => r.onclick = () => abrirEditor('Clientes', dir.clientes.find(c => c.id===r.dataset.id)));
+}
+$('fclEstado').addEventListener('change', pintarClientes);
+$('bNuevoCliente').onclick = () => abrirEditor('Clientes', null, { negocio:'Consultoría', activo:'Sí' });
+
+/* Modal y editor genérico */
+function modal(titulo, cuerpo, acciones){
+  cerrarModal();
+  const m = document.createElement('div'); m.className='modal'; m.id='modal';
+  m.innerHTML = '<div class="caja"><div class="cab"><h2>'+esc(titulo)+'</h2><button class="cerrar" aria-label="Cerrar">×</button></div>'+cuerpo+
+    '<div class="pie">'+(acciones||[]).map((a,i) => '<button class="btn '+(a.sec?'sec ':'')+'chico" data-a="'+i+'">'+esc(a.t)+'</button>').join('')+'</div></div>';
+  document.body.appendChild(m);
+  m.querySelector('.cerrar').onclick = cerrarModal;
+  m.addEventListener('click', e => { if (e.target===m) cerrarModal(); });
+  m.querySelectorAll('[data-a]').forEach(b => b.onclick = () => acciones[Number(b.dataset.a)].fn(b));
+  return m;
+}
+function cerrarModal(){ const m=$('modal'); if (m) m.remove(); }
+document.addEventListener('keydown', e => { if (e.key==='Escape') cerrarModal(); });
+
+function opcionesRef(tipo, valores){
+  let hoja = tipo.slice(4);
+  if (hoja==='*') hoja = valores.aplica_a==='Cliente' ? 'Clientes' : 'Propiedades';
+  const lista = hoja==='Propietarios' ? dir.propietarios : hoja==='Clientes' ? dir.clientes : dir.propiedades;
+  return [{v:'',t:'Selecciona…'}].concat(lista.map(x => ({ v:x.id, t:x.nombre + (x.activo==='No'||x.activa==='No' ? ' (inactivo)' : '') })));
+}
+function abrirEditor(hoja, reg, preset){
+  const esp = dir.espec[hoja]; const nuevo = !reg;
+  const val = Object.assign({}, preset||{}, reg||{});
+  const titulos = { Propietarios:'propietario', Propiedades:'propiedad', Contratos:'contrato', Servicios:'servicio', Clientes:'cliente' };
+  function campoHtml(c){
+    const t = esp.campos[c], v = val[c]==null ? '' : val[c];
+    let input;
+    if (Array.isArray(t)) input = '<select data-c="'+c+'">'+t.map(o => '<option value="'+esc(o)+'"'+(String(v)===o?' selected':'')+'>'+esc(o||'—')+'</option>').join('')+'</select>';
+    else if (String(t).indexOf('ref:')===0) input = '<select data-c="'+c+'">'+opcionesRef(t, val).map(o => '<option value="'+esc(o.v)+'"'+(String(v)===o.v?' selected':'')+'>'+esc(o.t)+'</option>').join('')+'</select>';
+    else if (t==='fecha') input = '<input type="date" data-c="'+c+'" value="'+esc(v)+'">';
+    else if (t==='pct') input = '<input type="number" step="0.1" min="0" max="100" data-c="'+c+'" value="'+(v===''?'':Math.round(Number(v)*1000)/10)+'">';
+    else if (t==='num') input = '<input type="number" data-c="'+c+'" value="'+esc(v)+'">';
+    else if (t==='dia') input = '<input type="number" min="1" max="31" data-c="'+c+'" value="'+esc(v)+'">';
+    else if (t==='tel') input = '<input type="tel" data-c="'+c+'" value="'+esc(v)+'" placeholder="300 123 4567">';
+    else if (t==='correo') input = '<input type="email" data-c="'+c+'" value="'+esc(v)+'">';
+    else if (c==='notas') input = '<textarea data-c="'+c+'">'+esc(v)+'</textarea>';
+    else input = '<input data-c="'+c+'" value="'+esc(v)+'">';
+    return '<div><label>'+(ETQ[c]||c)+(AYUDA[c]?' <span class="h">'+AYUDA[c]+'</span>':'')+'</label>'+input+'</div>';
+  }
+  const cuerpo = '<div class="sub">'+(nuevo?'Nuevo registro':esc(reg.id))+'</div><form id="fEd" class="dos">'+Object.keys(esp.campos).map(campoHtml).join('')+'</form><div id="edErr" class="msg-err oculto"></div>';
+  const m = modal((nuevo?'Nuevo ':'Editar ')+titulos[hoja], cuerpo, [
+    { t:'Cancelar', sec:true, fn:cerrarModal },
+    { t: nuevo?'Crear':'Guardar cambios', fn: async b => {
+      const campos = {};
+      m.querySelectorAll('[data-c]').forEach(el => campos[el.dataset.c] = el.value);
+      b.disabled = true; mostrarErr('edErr','');
+      try {
+        await api('guardarRegistro', { hoja, id: reg ? reg.id : '', campos });
+        toast(nuevo ? 'Creado ✓' : 'Cambios guardados ✓'); cerrarModal();
+        lsDel(LS.cat); await cargarDirectorio(true);
+        api('catalogo').then(r => { cat=r.catalogo; lsSet(LS.cat, JSON.stringify(cat)); pintarCatalogo(); }).catch(()=>{});
+      } catch(e){ mostrarErr('edErr', e.message); b.disabled = false; }
+    } }
+  ]);
+  const aplica = m.querySelector('[data-c="aplica_a"]');
+  if (aplica) aplica.onchange = () => {
+    val.aplica_a = aplica.value;
+    const sel = m.querySelector('[data-c="ref_id"]');
+    sel.innerHTML = opcionesRef('ref:*', val).map(o => '<option value="'+esc(o.v)+'">'+esc(o.t)+'</option>').join('');
+  };
+}
+
+/* Nueva propiedad (mismo proceso que el menú del Sheet) */
+$('bNuevaProp').onclick = () => {
+  const props = dir.propietarios.filter(p => p.activo!=='No').sort((a,b) => String(a.nombre).localeCompare(b.nombre));
+  const sel = (n, ops, v) => '<select name="'+n+'">'+ops.map(o => '<option'+(o===v?' selected':'')+'>'+esc(o)+'</option>').join('')+'</select>';
+  const cuerpo = '<form id="fNP">'+
+    '<label>Propietario</label><div class="seg" id="npModo"><button type="button" data-v="existente" class="on">Existente</button><button type="button" data-v="nuevo">Nuevo</button></div>'+
+    '<div id="npExist"><label>Elige el propietario</label><select name="propietarioId"><option value="">Selecciona…</option>'+props.map(p => '<option value="'+esc(p.id)+'">'+esc(p.nombre)+'</option>').join('')+'</select></div>'+
+    '<div id="npNuevo" class="oculto"><div class="dos"><div><label>Nombre completo</label><input name="nombre"></div><div><label>Correo</label><input name="correo" type="email"></div>'+
+      '<div><label>Celular / WhatsApp</label><input name="telefono" type="tel"></div><div><label>Segundo correo <span class="h">opcional</span></label><input name="correo2" type="email"></div></div>'+
+      '<label>¿Autoriza WhatsApp?</label>'+sel('autorizaWhatsapp',['No','Sí'],'No')+'</div>'+
+    '<div class="dos"><div><label>Nombre de la propiedad</label><input name="propiedadNombre"></div><div><label>Dirección</label><input name="direccion"></div>'+
+    '<div><label>Disponible para</label>'+sel('modalidades', ['Renta corta','Venta','Renta tradicional','Renta corta + Venta','Renta tradicional + Venta','Renta corta + Renta tradicional','Renta corta + Renta tradicional + Venta'],'Renta corta')+'</div>'+
+    '<div><label>Modalidad del contrato</label>'+sel('modalidadContrato',['Renta corta','Venta','Renta tradicional'],'Renta corta')+'</div>'+
+    '<div><label>Comisión BLÜM (%)</label><input name="comision" type="number" step="0.1" min="0" max="100"></div>'+
+    '<div><label>Base de comisión</label>'+sel('baseComision',['Neto de plataforma','Bruto'],'Neto de plataforma')+'</div>'+
+    '<div><label>Modelo de aseo <span class="h">ver ayuda en Contratos</span></label>'+sel('modeloAseo',['A','B'],'A')+'</div>'+
+    '<div><label>Vigente desde</label><input name="vigenteDesde" type="date" value="'+hoy()+'"></div>'+
+    '<div><label>IVA de la comisión</label>'+sel('ivaAsume',['BLÜM','Propietario'],'BLÜM')+'</div>'+
+    '<div><label>4x1000</label>'+sel('gmfAsume',['BLÜM','Propietario'],'BLÜM')+'</div></div>'+
+    '<label>Anuncios de Airbnb <span class="h">ids o links, opcional</span></label><input name="anuncios">'+
+    '<label>Servicios <span class="h">una línea por servicio: servicio ; tipo de referencia ; referencia ; día límite</span></label><textarea name="servicios"></textarea>'+
+    '<label>Notas</label><input name="notas"></form><div id="npErr" class="msg-err oculto"></div>';
+  let modo = 'existente';
+  const m = modal('Nueva propiedad', cuerpo, [
+    { t:'Cancelar', sec:true, fn:cerrarModal },
+    { t:'Crear propiedad', fn: async b => {
+      const f = { modoPropietario: modo };
+      m.querySelectorAll('#fNP [name]').forEach(el => f[el.name] = el.value);
+      b.disabled = true; mostrarErr('npErr','');
+      try { const r = await api('nuevaPropiedad', f); toast('Propiedad creada ✓'); cerrarModal(); await cargarDirectorio(true); abrirFichaPropiedad(r.propiedadId); }
+      catch(e){ mostrarErr('npErr', e.message); b.disabled = false; }
+    } }
+  ]);
+  m.querySelectorAll('#npModo button').forEach(bt => bt.onclick = () => {
+    modo = bt.dataset.v; m.querySelectorAll('#npModo button').forEach(x => x.classList.toggle('on', x===bt));
+    m.querySelector('#npExist').classList.toggle('oculto', modo!=='existente'); m.querySelector('#npNuevo').classList.toggle('oculto', modo!=='nuevo');
+  });
+};
+
+
 /* ───── inicio ───── */
 window.addEventListener('hashchange', () => { if (sesion) { const id=(location.hash||'').slice(1); if (id && id!==estado.modulo) ir(id); } });
 if (token && sesion) iniciarApp(); else $('vLogin').classList.remove('oculto');
+
 </script>
 </body>
 </html>
