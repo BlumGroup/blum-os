@@ -512,7 +512,7 @@ function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
 function $(id){ return document.getElementById(id); }
 function nuevoId(){ return (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/[-.]/g,''); }
 function cop(n){ return '$' + Math.round(Number(n)||0).toLocaleString('es-CO'); }
-function numero(s){ return Number(String(s||'').replace(/[^\d]/g,'')) || 0; }
+function numero(s){ return Number(String(s||'').split(',')[0].replace(/[^\d]/g,'')) || 0; }   // "1.250.000,50" → 1250000 (sin centavos)
 function hoy(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function opciones(sel, items, valor){
@@ -610,8 +610,15 @@ function iniciarApp(){
   pintarMenu();
   if (cat) pintarCatalogo();
   ir((location.hash||'').slice(1) || 'panel');
-  api('catalogo').then(r => { cat=r.catalogo; lsSet(LS.cat, JSON.stringify(cat)); pintarCatalogo(); }).catch(e => toast(e.message, true));
+  api('catalogo').then(r => { cat=r.catalogo; lsSet(LS.cat, JSON.stringify(cat)); actualizarSesion(r.sesion); pintarCatalogo(); }).catch(e => toast(e.message, true));
   cargarBandeja(true);
+}
+/** Si el rol cambió en el servidor, la app se ajusta sin tener que volver a entrar */
+function actualizarSesion(s){
+  if (!s || !sesion || (s.rol === sesion.rol && s.nombre === sesion.nombre)) return;
+  sesion = Object.assign({}, sesion, { rol: s.rol, nombre: s.nombre }); lsSet(LS.ses, JSON.stringify(sesion));
+  $('uNombre').textContent = sesion.nombre; $('uRol').textContent = sesion.rol === 'Admin' ? 'Administrador' : 'Registro';
+  lsDel(LS.cat); pintarMenu(); ir(estado.modulo);
 }
 
 /* ───── panel ───── */
@@ -644,7 +651,7 @@ function pintarPanel(r){
 
 /* ───── catálogo y formulario ───── */
 function pintarCatalogo(){
-  { const s=$('rFiltroProp'), act=s.value || lsGet('blumos_resprop') || ''; opciones(s, [{v:'',t:'Todas las propiedades'}].concat((cat.propiedades||[]).map(p => ({v:p.id,t:p.nombre}))), act); }
+  { const s=$('rFiltroProp'), act = s.options.length > 1 ? s.value : (lsGet('blumos_resprop') || ''); opciones(s, [{v:'',t:'Todas las propiedades'}].concat((cat.propiedades||[]).map(p => ({v:p.id,t:p.nombre}))), act); }
   $('sNegocio').innerHTML = cat.negocios.map(n => '<button type="button" data-v="'+esc(n)+'" class="'+(n===estado.negocio?'on':'')+'">'+esc(n)+'</button>').join('');
   $('sNegocio').querySelectorAll('button').forEach(b => b.onclick = () => { estado.negocio=b.dataset.v; estado.cargo=''; estado.canal=''; pintarCatalogo(); });
   const tipoAct = $('mTipo').value || 'Egreso';
@@ -890,7 +897,7 @@ function rangoRapido(r){
 }
 function prepararReservas(){
   if (!$('rDesde').value) { const ini=JSON.parse(lsGet('blumos_resrango')||'null'); if (ini) { $('rDesde').value=ini[0]; $('rHasta').value=ini[1]; } else { rangoRapido('3m'); return false; } }
-  const sel=$('rFiltroProp'), act=sel.value || lsGet('blumos_resprop') || '';
+  const sel=$('rFiltroProp'), act = sel.options.length > 1 ? sel.value : (lsGet('blumos_resprop') || '');   // lo guardado solo al abrir
   opciones(sel, [{v:'',t:'Todas las propiedades'}].concat((cat&&cat.propiedades||[]).map(p => ({v:p.id,t:p.nombre}))), act);
   $('rVista').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v===resVista));
   return true;
@@ -910,11 +917,14 @@ function nochesEnRango(r, de, ha){ // noches de la reserva que caen dentro del r
   return Math.max(0, Math.round((pISO(b)-pISO(a))/86400000));
 }
 function pintarReservas(rs){
+  rs = rs.slice().sort((a,b) => a.checkin < b.checkin ? -1 : a.checkin > b.checkin ? 1 : 0);   // no depender del orden del servidor
   const de=$('rDesde').value, ha=$('rHasta').value, anioHoy=hoy().slice(0,4);
   const vivas = rs.filter(r => r.estado_reserva!=='Cancelada');
   const dias = Math.round((pISO(ha)-pISO(de))/86400000)+1;
   const noches = vivas.reduce((t,r)=>t+nochesEnRango(r,de,ha),0);
-  const nProps = $('rFiltroProp').value ? 1 : (cat&&cat.propiedades||[]).filter(p => String(p.modalidades||'').indexOf('Renta corta')>=0).length || 1;
+  // Denominador = las mismas propiedades que se muestran: renta corta activas + cualquiera con reservas en el rango
+  const idsProps = {}; (cat&&cat.propiedades||[]).forEach(p => { if (String(p.modalidades||'').indexOf('Renta corta')>=0) idsProps[p.id]=1; }); vivas.forEach(r => idsProps[r.propiedad_id]=1);
+  const nProps = $('rFiltroProp').value ? 1 : (Object.keys(idsProps).length || 1);
   $('rTot').innerHTML = '<div><span class="eti">Reservas</span><b>'+vivas.length+'</b></div><div><span class="eti">Noches en el rango</span><b>'+noches+'</b></div>'+
     '<div><span class="eti">Ocupación</span><b>'+Math.round(noches*100/(dias*nProps))+'%</b></div><div><span class="eti">Neto Airbnb/directo</span><b class="verde">'+cop(vivas.reduce((t,r)=>t+r.neto,0))+'</b></div>';
   if (resVista==='cal') return pintarCalendario(rs, de, ha);
@@ -1172,7 +1182,7 @@ function abrirEditor(hoja, reg, preset){
         await api('guardarRegistro', { hoja, id: reg ? reg.id : '', campos });
         toast(nuevo ? 'Creado ✓' : 'Cambios guardados ✓'); cerrarModal();
         lsDel(LS.cat); await cargarDirectorio(true);
-        api('catalogo').then(r => { cat=r.catalogo; lsSet(LS.cat, JSON.stringify(cat)); pintarCatalogo(); }).catch(()=>{});
+        api('catalogo').then(r => { cat=r.catalogo; lsSet(LS.cat, JSON.stringify(cat)); actualizarSesion(r.sesion); pintarCatalogo(); }).catch(()=>{});
       } catch(e){ mostrarErr('edErr', e.message); b.disabled = false; }
     } }
   ]);
