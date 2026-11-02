@@ -494,8 +494,11 @@ function esqueleto(n){ return Array.from({length:n}, () => '<div class="esq"></d
 function esAdmin(){ return sesion && sesion.rol === 'Admin'; }
 
 async function api(accion, datos){
-  const r = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ accion, token, datos }) });
-  const j = await r.json();
+  let r, j;
+  try { r = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ accion, token, datos }) }); }
+  catch(e){ throw new Error('Sin conexión con BLÜM OS. Revisa internet e intenta de nuevo (no se duplica).'); }
+  try { j = await r.json(); }
+  catch(e){ throw new Error('Google no respondió bien (puede estar saturado). Espera un minuto e intenta de nuevo; no se duplica.'); }
   if (j.sesion === false) { cerrarSesion(); throw new Error(j.error || 'Sesión vencida'); }
   if (!j.ok) throw new Error(j.error || 'Error');
   return j;
@@ -504,7 +507,8 @@ async function api(accion, datos){
 /* ───── sesión ───── */
 function cerrarSesion(){
   if (token) fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ accion:'logout', token }) }).catch(()=>{});
-  token = null; sesion = null; lsDel(LS.tok); lsDel(LS.ses); lsDel(LS.panel); lsDel(LS.bandeja); lsDel('blumos_dir'); dir = null;
+  token = null; sesion = null; dir = null; cat = null;
+  try { Object.keys(localStorage).filter(k => k.indexOf('blumos_') === 0).forEach(k => localStorage.removeItem(k)); } catch(e){}
   $('vApp').classList.add('oculto'); $('vLogin').classList.remove('oculto');
 }
 $('fLogin').addEventListener('submit', async ev => {
