@@ -187,6 +187,28 @@ textarea{min-height:70px;resize:vertical}
 .dato span:first-child{color:var(--muted)}
 .dos{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 @media (max-width:600px){ .dos{grid-template-columns:1fr} .herr input,.herr select{min-width:0;flex:1} .herr .btn{margin-left:0;width:100%} }
+
+/* Reservas */
+.res-herr .vista{flex:0 0 auto}.res-herr .vista button{min-width:96px;padding:8px 10px}
+.rango{display:flex;align-items:center;gap:6px}.rango input{width:auto;min-width:0}.rango span{color:var(--muted)}
+.rapidos{margin:-4px 0 14px}.rapidos .chip{border:1px solid var(--line);background:#fff;cursor:pointer;font-size:.76rem;padding:5px 10px}
+.rapidos .chip:hover{border-color:var(--sage)}
+.mes-tit{font-weight:600;font-size:.9rem;margin:16px 0 4px;text-transform:capitalize}.mes-tit:first-child{margin-top:0}
+.tabla tr.cancel td{color:var(--muted);text-decoration:line-through}
+.fechas{white-space:nowrap}.fechas b{font-weight:500}
+.cal{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cal-g{display:grid;min-width:max-content;font-size:.74rem}
+.cal-g .h{position:sticky;top:0;background:var(--paper);text-align:center;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--line)}
+.cal-g .h.fs{background:var(--cream)}.cal-g .h.hoy{color:var(--terra);font-weight:700}
+.cal-g .mes{grid-row:1;font-weight:600;color:var(--ink);text-transform:capitalize;text-align:left;padding:4px 6px;border-bottom:none}
+.cal-g .prop{position:sticky;left:0;z-index:2;background:var(--paper);padding:10px 8px;border-bottom:1px solid var(--line);font-weight:500;white-space:nowrap}
+.cal-g .prop small{display:block;color:var(--muted);font-weight:400}
+.cal-g .dia{border-bottom:1px solid var(--line);border-left:1px solid rgba(26,23,20,.04)}.cal-g .dia.fs{background:var(--cream)}.cal-g .dia.hoy{background:var(--terra-l)}
+.cal-g .bar{align-self:center;height:26px;margin:0 2px;border-radius:6px;background:var(--terra);color:#fff;padding:0 6px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;cursor:pointer;z-index:1;font-weight:500}
+.cal-g .bar.dir{background:var(--sage)}.cal-g .bar.can{background:var(--cream2);color:var(--muted);text-decoration:line-through}
+.cal-g .bar:hover{filter:brightness(.92)}
+.leyenda{display:flex;gap:14px;font-size:.74rem;color:var(--muted);margin-top:10px}.leyenda i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+@media (max-width:600px){ .rango{width:100%} .rango input{flex:1} .res-herr .vista{width:100%} }
 </style>
 </head>
 <body>
@@ -313,11 +335,23 @@ textarea{min-height:70px;resize:vertical}
       <!-- RESERVAS -->
       <section id="m-reservas" class="oculto">
         <div class="pestanas" id="tabRes">
-          <button data-t="lista" class="on">Reservas del mes</button>
+          <button data-t="lista" class="on">Reservas</button>
           <button data-t="directa">Nueva reserva directa</button>
         </div>
         <div id="resLista">
-          <div style="max-width:220px;margin-bottom:12px"><input id="rPeriodo" type="month"></div>
+          <div class="herr res-herr">
+            <div class="seg vista" id="rVista"><button type="button" data-v="lista" class="on">Lista</button><button type="button" data-v="cal">Calendario</button></div>
+            <select id="rFiltroProp"></select>
+            <div class="rango"><input id="rDesde" type="date" aria-label="Desde"><span>→</span><input id="rHasta" type="date" aria-label="Hasta"></div>
+          </div>
+          <div class="chips rapidos" id="rRapidos">
+            <button type="button" class="chip" data-r="mes">Este mes</button>
+            <button type="button" class="chip" data-r="sig">Próximo mes</button>
+            <button type="button" class="chip" data-r="3m">Próximos 3 meses</button>
+            <button type="button" class="chip" data-r="ant">Mes anterior</button>
+            <button type="button" class="chip" data-r="anio">Este año</button>
+          </div>
+          <div class="totales" id="rTot"></div>
           <div class="card"><div id="rTabla"></div></div>
         </div>
         <div id="resDirecta" class="angosto oculto">
@@ -610,6 +644,7 @@ function pintarPanel(r){
 
 /* ───── catálogo y formulario ───── */
 function pintarCatalogo(){
+  { const s=$('rFiltroProp'), act=s.value || lsGet('blumos_resprop') || ''; opciones(s, [{v:'',t:'Todas las propiedades'}].concat((cat.propiedades||[]).map(p => ({v:p.id,t:p.nombre}))), act); }
   $('sNegocio').innerHTML = cat.negocios.map(n => '<button type="button" data-v="'+esc(n)+'" class="'+(n===estado.negocio?'on':'')+'">'+esc(n)+'</button>').join('');
   $('sNegocio').querySelectorAll('button').forEach(b => b.onclick = () => { estado.negocio=b.dataset.v; estado.cargo=''; estado.canal=''; pintarCatalogo(); });
   const tipoAct = $('mTipo').value || 'Egreso';
@@ -838,19 +873,113 @@ $('bVerificar').addEventListener('click', async () => {
 });
 
 /* ───── reservas ───── */
+/* ───── reservas ───── */
+const DSEM=['dom','lun','mar','mié','jue','vie','sáb'], MESC=['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
+const MESL=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const fISO = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const pISO = s => { const p=String(s).split('-'); return new Date(+p[0], +p[1]-1, +p[2], 12); };
+function fechaLarga(s, conAnio){ const d=pISO(s); return DSEM[d.getDay()]+' '+d.getDate()+' '+MESC[d.getMonth()]+(conAnio?' '+d.getFullYear():''); }
+let resVista = lsGet('blumos_resvista') || 'lista';
+function rangoRapido(r){
+  const h=pISO(hoy()), y=h.getFullYear(), m=h.getMonth();
+  const de = { mes:[new Date(y,m,1),new Date(y,m+1,0)], sig:[new Date(y,m+1,1),new Date(y,m+2,0)], '3m':[new Date(y,m,1),new Date(y,m+3,0)],
+    ant:[new Date(y,m-1,1),new Date(y,m,0)], anio:[new Date(y,0,1),new Date(y,11,31)] }[r];
+  $('rDesde').value=fISO(de[0]); $('rHasta').value=fISO(de[1]);
+  $('rRapidos').querySelectorAll('.chip').forEach(c => c.classList.toggle('v', c.dataset.r===r));
+  cargarReservas();
+}
+function prepararReservas(){
+  if (!$('rDesde').value) { const ini=JSON.parse(lsGet('blumos_resrango')||'null'); if (ini) { $('rDesde').value=ini[0]; $('rHasta').value=ini[1]; } else { rangoRapido('3m'); return false; } }
+  const sel=$('rFiltroProp'), act=sel.value || lsGet('blumos_resprop') || '';
+  opciones(sel, [{v:'',t:'Todas las propiedades'}].concat((cat&&cat.propiedades||[]).map(p => ({v:p.id,t:p.nombre}))), act);
+  $('rVista').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v===resVista));
+  return true;
+}
 async function cargarReservas(){
-  const per = $('rPeriodo').value || hoy().slice(0,7); $('rPeriodo').value=per;
-  const previo = JSON.parse(lsGet(LS.res+per)||'null');
-  if (previo) pintarReservas(previo); else $('rTabla').innerHTML=esqueleto(3);
-  try { const r = await api('listarReservas',{periodo:per}); lsSet(LS.res+per, JSON.stringify(r.reservas)); pintarReservas(r.reservas); } catch(e){ toast(e.message,true); }
+  if (!prepararReservas()) return;
+  let de=$('rDesde').value, ha=$('rHasta').value;
+  if (de && ha && ha < de) { [de,ha]=[ha,de]; $('rDesde').value=de; $('rHasta').value=ha; }
+  lsSet('blumos_resrango', JSON.stringify([de,ha])); lsSet('blumos_resprop', $('rFiltroProp').value);
+  const k=LS.res+de+'_'+ha+'_'+$('rFiltroProp').value;
+  const previo = JSON.parse(lsGet(k)||'null');
+  if (previo) pintarReservas(previo); else { $('rTabla').innerHTML=esqueleto(3); $('rTot').innerHTML=''; }
+  try { const r = await api('listarReservas',{desde:de, hasta:ha, propiedad:$('rFiltroProp').value}); lsSet(k, JSON.stringify(r.reservas)); pintarReservas(r.reservas); } catch(e){ toast(e.message,true); }
+}
+function nochesEnRango(r, de, ha){ // noches de la reserva que caen dentro del rango
+  const a = r.checkin > de ? r.checkin : de, finEx = fISO(new Date(pISO(ha).getTime()+86400000)), b = r.checkout < finEx ? r.checkout : finEx;
+  return Math.max(0, Math.round((pISO(b)-pISO(a))/86400000));
 }
 function pintarReservas(rs){
-  $('rTabla').innerHTML = rs.length ? '<table class="tabla"><tr><th>Propiedad</th><th>Huésped</th><th>Fechas</th><th class="num-r">Noches</th><th>Canal</th><th class="num-r">Neto</th></tr>'+
-    rs.map(r => '<tr><td>'+esc(r.propiedad)+'</td><td>'+esc(r.huesped)+'</td><td>'+esc(r.checkin.slice(5))+' → '+esc(r.checkout.slice(5))+'</td><td class="num-r">'+r.noches+'</td><td>'+esc(r.plataforma)+(r.estado_reserva==='Cancelada'?' · cancelada':'')+'</td><td class="num-r">'+cop(r.neto)+'</td></tr>').join('')+'</table>'
-    + '<div class="eti" style="margin-top:10px">Las reservas de Airbnb llegan solas desde la Fase 3</div>'
-    : '<div class="vacio">Sin reservas en este mes. Las de Airbnb llegarán solas con la Fase 3.</div>';
+  const de=$('rDesde').value, ha=$('rHasta').value, anioHoy=hoy().slice(0,4);
+  const vivas = rs.filter(r => r.estado_reserva!=='Cancelada');
+  const dias = Math.round((pISO(ha)-pISO(de))/86400000)+1;
+  const noches = vivas.reduce((t,r)=>t+nochesEnRango(r,de,ha),0);
+  const nProps = $('rFiltroProp').value ? 1 : (cat&&cat.propiedades||[]).filter(p => String(p.modalidades||'').indexOf('Renta corta')>=0).length || 1;
+  $('rTot').innerHTML = '<div><span class="eti">Reservas</span><b>'+vivas.length+'</b></div><div><span class="eti">Noches en el rango</span><b>'+noches+'</b></div>'+
+    '<div><span class="eti">Ocupación</span><b>'+Math.round(noches*100/(dias*nProps))+'%</b></div><div><span class="eti">Neto Airbnb/directo</span><b class="verde">'+cop(vivas.reduce((t,r)=>t+r.neto,0))+'</b></div>';
+  if (resVista==='cal') return pintarCalendario(rs, de, ha);
+  if (!rs.length) { $('rTabla').innerHTML='<div class="vacio">Sin reservas en este rango</div>'; return; }
+  let html='', mesAct='';
+  rs.forEach(r => {
+    const mes=r.checkin.slice(0,7);
+    if (mes!==mesAct) { if (mesAct) html+='</table>'; mesAct=mes; const d=pISO(r.checkin);
+      html+='<div class="mes-tit">'+MESL[d.getMonth()]+' '+d.getFullYear()+'</div><table class="tabla"><tr><th>Propiedad</th><th>Huésped</th><th>Llegada → Salida</th><th class="num-r">Noches</th><th class="num-r">Pers.</th><th>Canal</th><th class="num-r">Neto</th></tr>'; }
+    const conAnio = r.checkin.slice(0,4)!==anioHoy || r.checkout.slice(0,4)!==r.checkin.slice(0,4);
+    html+='<tr class="click'+(r.estado_reserva==='Cancelada'?' cancel':'')+'" data-c="'+esc(r.codigo)+'"><td>'+esc(r.propiedad)+'</td><td>'+esc(r.huesped)+'</td><td class="fechas"><b>'+fechaLarga(r.checkin,conAnio)+'</b> → <b>'+fechaLarga(r.checkout,conAnio)+'</b></td><td class="num-r">'+r.noches+'</td><td class="num-r">'+(r.personas||'')+'</td><td>'+esc(r.plataforma)+(r.estado_reserva==='Cancelada'?' · cancelada':'')+'</td><td class="num-r">'+cop(r.neto)+'</td></tr>';
+  });
+  $('rTabla').innerHTML = html+'</table>';
+  $('rTabla').querySelectorAll('tr[data-c]').forEach(t => t.onclick = () => fichaReserva(rs.find(r => r.codigo===t.dataset.c)));
 }
-$('rPeriodo').addEventListener('change', cargarReservas);
+function pintarCalendario(rs, de, ha){
+  let ini=pISO(de), fin=pISO(ha); let aviso='';
+  const n0 = Math.round((fin-ini)/86400000)+1;
+  if (n0>124) { fin=new Date(ini.getTime()+123*86400000); aviso='<div class="eti" style="margin-bottom:8px">El calendario muestra hasta 4 meses desde la fecha inicial. Usa la lista para rangos más largos.</div>'; }
+  const n = Math.round((fin-ini)/86400000)+1, hoyS=hoy();
+  const dias = Array.from({length:n}, (_,i) => new Date(ini.getTime()+i*86400000));
+  const filtro=$('rFiltroProp').value;
+  let props = (cat&&cat.propiedades||[]).filter(p => !filtro || p.id===filtro).filter(p => filtro || String(p.modalidades||'').indexOf('Renta corta')>=0 || rs.some(r => r.propiedad_id===p.id));
+  rs.forEach(r => { if (!props.some(p => p.id===r.propiedad_id)) props.push({ id:r.propiedad_id, nombre:r.propiedad }); });
+  const ancho = n>62 ? 26 : 34;
+  let g = '<div class="cal-g" style="grid-template-columns:170px repeat('+n+','+ancho+'px)">';
+  // fila 1: meses · fila 2: días
+  g+='<div class="h prop" style="grid-row:1 / span 2;grid-column:1;z-index:3"></div>';
+  dias.forEach((d,i) => { if (i===0 || d.getDate()===1) { const span = Math.min(n-i, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()-d.getDate()+1);
+    g+='<div class="h mes" style="grid-column:'+(i+2)+' / span '+span+'">'+MESL[d.getMonth()]+' '+d.getFullYear()+'</div>'; } });
+  dias.forEach((d,i) => { const fs=d.getDay()===0||d.getDay()===6, esHoy=fISO(d)===hoyS;
+    g+='<div class="h'+(fs?' fs':'')+(esHoy?' hoy':'')+'" style="grid-row:2;grid-column:'+(i+2)+'">'+DSEM[d.getDay()].charAt(0).toUpperCase()+'<br>'+d.getDate()+'</div>'; });
+  props.forEach((p,k) => {
+    const fila=k+3, suyas=rs.filter(r => r.propiedad_id===p.id);
+    const noches=suyas.filter(r => r.estado_reserva!=='Cancelada').reduce((t,r)=>t+nochesEnRango(r,fISO(ini),fISO(fin)),0);
+    g+='<div class="prop" style="grid-row:'+fila+';grid-column:1">'+esc(p.nombre)+'<small>'+noches+' noches · '+Math.round(noches*100/n)+'%</small></div>';
+    dias.forEach((d,i) => { const fs=d.getDay()===0||d.getDay()===6, esHoy=fISO(d)===hoyS; g+='<div class="dia'+(fs?' fs':'')+(esHoy?' hoy':'')+'" style="grid-row:'+fila+';grid-column:'+(i+2)+'"></div>'; });
+    suyas.forEach(r => {
+      const a=Math.max(0, Math.round((pISO(r.checkin)-ini)/86400000)), b=Math.min(n, Math.round((pISO(r.checkout)-ini)/86400000));
+      if (b<=a) return;
+      const cls = r.estado_reserva==='Cancelada' ? ' can' : (r.plataforma==='Directo' ? ' dir' : '');
+      g+='<div class="bar'+cls+'" data-c="'+esc(r.codigo)+'" title="'+esc(r.huesped+' · '+fechaLarga(r.checkin)+' → '+fechaLarga(r.checkout)+' · '+r.noches+' noches')+'" style="grid-row:'+fila+';grid-column:'+(a+2)+' / '+(b+2)+'">'+esc(r.huesped.split(' ')[0])+'</div>';
+    });
+  });
+  g+='</div>';
+  $('rTabla').innerHTML = aviso+'<div class="cal">'+g+'</div><div class="leyenda"><span><i style="background:var(--terra)"></i>Airbnb</span><span><i style="background:var(--sage)"></i>Directo</span><span><i style="background:var(--cream2)"></i>Cancelada</span><span><i style="background:var(--terra-l)"></i>Hoy</span></div>';
+  $('rTabla').querySelectorAll('.bar').forEach(b => b.onclick = () => fichaReserva(rs.find(r => r.codigo===b.dataset.c)));
+  const hoyCol = Math.round((pISO(hoyS)-ini)/86400000);
+  if (hoyCol>3 && hoyCol<n) $('rTabla').querySelector('.cal').scrollLeft = (hoyCol-3)*ancho;
+}
+function fichaReserva(r){
+  if (!r) return;
+  const conAnio=true;
+  modal(r.huesped, '<div class="sub">'+esc(r.codigo)+' · '+esc(r.plataforma)+'</div>'+
+    dato('Propiedad', esc(r.propiedad))+dato('Llegada', fechaLarga(r.checkin,conAnio))+dato('Salida', fechaLarga(r.checkout,conAnio))+
+    dato('Noches', r.noches)+dato('Personas', r.personas||'—')+
+    (r.tarifa_noches?dato('Tarifa noches', cop(r.tarifa_noches)):'')+(r.tarifa_aseo?dato('Aseo', cop(r.tarifa_aseo)):'')+
+    dato('Neto', '<b>'+cop(r.neto)+'</b>')+dato('Pago recibido', r.pagado?cop(r.pagado):'Pendiente')+
+    dato('Estado', esc(r.estado_reserva)+' · '+esc(r.estado)), [{ t:'Cerrar', sec:true, fn:cerrarModal }]);
+}
+$('rDesde').addEventListener('change', () => { $('rRapidos').querySelectorAll('.chip').forEach(c=>c.classList.remove('v')); cargarReservas(); });
+$('rHasta').addEventListener('change', () => { $('rRapidos').querySelectorAll('.chip').forEach(c=>c.classList.remove('v')); cargarReservas(); });
+$('rFiltroProp').addEventListener('change', cargarReservas);
+$('rRapidos').querySelectorAll('.chip').forEach(c => c.onclick = () => rangoRapido(c.dataset.r));
+$('rVista').querySelectorAll('button').forEach(b => b.onclick = () => { resVista=b.dataset.v; lsSet('blumos_resvista', resVista); cargarReservas(); });
 function calcNoches(){ const a=$('rIn').value, b=$('rOut').value; const n = a&&b ? Math.round((new Date(b)-new Date(a))/86400000) : 0; $('rNoches').textContent = n>0 ? n+' noche'+(n>1?'s':'') : ''; return n; }
 $('rIn').addEventListener('change', calcNoches); $('rOut').addEventListener('change', calcNoches);
 $('rPagado').addEventListener('change', e => { $('wPago').classList.toggle('oculto', !e.target.checked); if (!$('rFechaPago').value) $('rFechaPago').value=hoy(); });
