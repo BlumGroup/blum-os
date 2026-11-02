@@ -909,7 +909,7 @@ function pintarPropiedades(){
     .sort((a,b) => (a.activa==='No') - (b.activa==='No') || String(a.nombre).localeCompare(b.nombre));
   $('gProps').innerHTML = lista.length ? lista.map(p => {
     const cv = vigenteDe(p.id), nServ = dir.servicios.filter(s => s.propiedad_id===p.id && s.activo!=='No').length;
-    const contrato = cv.length ? cv.map(c => esc(c.modalidad||'')+' '+pct(c.comision_pct)+(c.modelo_aseo?' · aseo '+esc(c.modelo_aseo):' · <span class="terra">sin aseo</span>')).join('<br>') : '<span class="terra">Sin contrato vigente</span>';
+    const contrato = cv.length ? cv.map(c => esc(c.modalidad||'')+' '+pct(c.comision_pct)+(c.modalidad!=='Renta corta'?'':c.modelo_aseo?' · aseo '+esc(c.modelo_aseo):' · <span class="terra">sin aseo</span>')).join('<br>') : '<span class="terra">Sin contrato vigente</span>';
     return '<div class="ficha" data-id="'+esc(p.id)+'"><div class="n">'+esc(p.nombre)+'</div><div class="p">'+esc(nomDueno(p.propietario_id))+'</div>'+
       '<div class="chips">'+String(p.modalidades||'').split('+').map(m => '<span class="chip">'+esc(m.trim())+'</span>').join('')+chipActivo(p.activa)+'</div>'+
       '<div class="l"><span>'+contrato+'</span><span class="eti">'+nServ+' servicio'+(nServ===1?'':'s')+'</span></div></div>';
@@ -959,7 +959,7 @@ function pintarContratos(){
   const solo = $('fcEstado').value==='vigentes', tipo = $('fcTipo').value;
   const lista = dir.contratos.filter(c => (!solo || c.vigente) && (!tipo || c.aplica_a===tipo)).sort((a,b) => String(a.ref_nombre).localeCompare(b.ref_nombre) || String(b.vigente_desde).localeCompare(a.vigente_desde));
   $('tContratos').innerHTML = lista.length ? '<table class="tabla"><tr><th>Propiedad / cliente</th><th>Modalidad</th><th class="num-r">Comisión</th><th>Base</th><th>Aseo</th><th>IVA</th><th>4x1000</th><th class="num-r">Retainer</th><th>Vigencia</th></tr>'+
-    lista.map(c => '<tr class="click" data-id="'+esc(c.id)+'"><td><b>'+esc(c.ref_nombre||c.ref_id)+'</b></td><td>'+esc(c.modalidad||(c.aplica_a==='Cliente'?'Consultoría':'—'))+'</td><td class="num-r">'+(c.aplica_a==='Cliente'?'—':pct(c.comision_pct))+'</td><td>'+esc(c.base_comision||'—')+'</td><td>'+(c.aplica_a==='Cliente'?'—':(c.modelo_aseo?esc(c.modelo_aseo):'<span class="terra">Falta</span>'))+'</td><td>'+esc(c.iva_comision_asume||'—')+'</td><td>'+esc(c.gmf_asume||'—')+'</td><td class="num-r">'+(c.retainer_mensual?cop(c.retainer_mensual):'—')+'</td><td>'+esc(c.vigente_desde||'—')+' → '+esc(c.vigente_hasta||'hoy')+'</td></tr>').join('')+'</table>'
+    lista.map(c => '<tr class="click" data-id="'+esc(c.id)+'"><td><b>'+esc(c.ref_nombre||c.ref_id)+'</b></td><td>'+esc(c.modalidad||(c.aplica_a==='Cliente'?'Consultoría':'—'))+'</td><td class="num-r">'+(c.aplica_a==='Cliente'?'—':pct(c.comision_pct))+'</td><td>'+esc(c.base_comision||'—')+'</td><td>'+(c.aplica_a==='Cliente'||c.modalidad!=='Renta corta'?'—':(c.modelo_aseo?esc(c.modelo_aseo):'<span class="terra">Falta</span>'))+'</td><td>'+esc(c.iva_comision_asume||'—')+'</td><td>'+esc(c.gmf_asume||'—')+'</td><td class="num-r">'+(c.retainer_mensual?cop(c.retainer_mensual):'—')+'</td><td>'+esc(c.vigente_desde||'—')+' → '+esc(c.vigente_hasta||'hoy')+'</td></tr>').join('')+'</table>'
     : '<div class="vacio">Sin contratos</div>';
   $('tContratos').querySelectorAll('tr[data-id]').forEach(r => r.onclick = () => abrirEditor('Contratos', dir.contratos.find(c => c.id===r.dataset.id)));
 }
