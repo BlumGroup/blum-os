@@ -174,6 +174,17 @@ textarea{min-height:70px;resize:vertical}
 .liq-tot .fin{font-weight:600;border-top:1px solid var(--line);padding-top:6px}
 .chip{display:inline-block;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:20px;border:1px solid var(--line)}
 .chip.ok{color:var(--sage);border-color:var(--sage)}
+.multi{position:relative}
+.multi summary{list-style:none;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:8px 30px 8px 12px;background:var(--paper);font-size:.86rem;white-space:nowrap}
+.multi summary::-webkit-details-marker{display:none}
+.multi summary::after{content:'▾';position:absolute;right:11px;top:8px;color:var(--muted)}
+.multi-op{position:absolute;z-index:20;top:calc(100% + 4px);left:0;min-width:230px;max-height:300px;overflow-y:auto;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+.multi-op label{display:flex;gap:8px;align-items:center;padding:6px 6px;font-size:.86rem;cursor:pointer;border-radius:6px;margin:0}
+.multi-op label:hover{background:var(--cream)}
+.multi-op .todas{border-bottom:1px solid var(--line);margin-bottom:4px;font-weight:600}
+.tabla tr.subt td{font-weight:600;background:var(--cream)}
+.multi summary{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:640px){ .multi{flex:1 1 100%;min-width:0} .multi-op{right:0;min-width:0;max-width:100%} }
 .grupo{font-weight:600;font-size:.9rem;margin:18px 0 8px}
 .grupo:first-child{margin-top:0}
 
@@ -454,7 +465,10 @@ textarea{min-height:70px;resize:vertical}
       </section>
 
       <section id="m-liquidaciones" class="oculto">
-        <div class="herr"><label class="eti" for="lMes">Mes</label><select id="lMes"></select><span class="eti" id="lResumen"></span></div>
+        <div class="herr">
+          <details class="multi" id="lMesesF"><summary id="lMesesT">Meses</summary><div class="multi-op" id="lMeses"></div></details>
+          <details class="multi" id="lPropsF"><summary id="lPropsT">Propiedades: todas</summary><div class="multi-op" id="lProps"></div></details>
+          <span class="eti" id="lResumen"></span></div>
         <div class="kpis" id="lKpis"></div>
         <div class="card"><h3 class="tit-card">Propiedades</h3><div class="tabla-wrap" id="lTabla"></div>
           <p class="eti" style="margin-top:10px">Saldo final positivo: BLÜM le debe al propietario. Negativo: el propietario le debe a BLÜM. Toca una propiedad para ver el detalle, cerrar el mes o imprimir el reporte.</p></div>
@@ -623,7 +637,7 @@ function ir(id, sub){
   if (m.id==='reservas') pestana('tabRes', sub);
   if (DIRECTORIO.indexOf(m.id)>=0) cargarDirectorio();
   if (m.id==='caja') cargarCaja();
-  if (m.id==='liquidaciones') cargarLiquidaciones();
+  if (m.id==='liquidaciones') cargarLiquidaciones(true);
 }
 function pestana(grupo, t){
   const cont = $(grupo); const btns = cont.querySelectorAll('button');
@@ -1336,36 +1350,99 @@ let liqDatos = null;
 const LIQ_INICIO = '2026-10';
 function mesTxt(p){ return MESL[Number(p.slice(5,7))-1]+' '+p.slice(0,4); }
 function saldoTxt(v){ return v>0 ? 'A pagar al propietario' : v<0 ? 'El propietario debe' : 'En cero'; }
-function opcionesMesLiq(){
-  const sel = $('lMes'); if (sel.options.length) return;
-  const h = hoy().slice(0,7); const ms = []; let p = LIQ_INICIO;
+/* Filtros con casillas: varios meses y varias propiedades (se recuerdan en este navegador) */
+const LIQ_SEL = 'blumos_liq_sel';
+let liqSel = null, liqCache = {}, liqTurno = 0;
+function mesesLiq(){
+  const h = hoy().slice(0,7), ms = []; let p = LIQ_INICIO;
   while (p <= h) { ms.push(p); const y=Number(p.slice(0,4)), m=Number(p.slice(5,7)); p = m===12 ? (y+1)+'-01' : y+'-'+String(m+1).padStart(2,'0'); }
-  // por defecto: el último mes terminado
-  const def = ms.length>1 ? ms[ms.length-2] : ms[0];
-  opciones(sel, ms.reverse().map(x => ({ v:x, t:mesTxt(x)+(x===h?' (en curso)':'') })), def);
-  sel.onchange = cargarLiquidaciones;
+  return ms.reverse();
 }
-async function cargarLiquidaciones(){
-  opcionesMesLiq();
-  $('lTabla').innerHTML = esqueleto(3); $('lKpis').innerHTML = '';
-  try { const r = await api('liquidaciones', { periodo: $('lMes').value }); liqDatos = r; pintarLiquidaciones(r); }
-  catch(e){ $('lTabla').innerHTML = '<div class="vacio">'+esc(e.message)+'</div>'; }
+function iniciarFiltrosLiq(){
+  if (liqSel) return;
+  const ms = mesesLiq(), h = hoy().slice(0,7);
+  let guardado = null; try { guardado = JSON.parse(lsGet(LIQ_SEL) || 'null'); } catch(e){}
+  const def = ms.find(x => x !== h) || ms[0];      // por defecto: el último mes terminado
+  const lista = v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];   // selección guardada dañada → se ignora
+  liqSel = { meses: lista(guardado && guardado.meses).filter(x => ms.indexOf(x) >= 0), props: lista(guardado && guardado.props), def: def };
+  if (!liqSel.meses.length) liqSel.meses = [def];
+  $('lMeses').innerHTML = '<label class="todas"><input type="checkbox" data-todos="m"'+(liqSel.meses.length===ms.length?' checked':'')+'> Todos los meses</label>' +
+    ms.map(x => '<label><input type="checkbox" value="'+x+'"'+(liqSel.meses.indexOf(x)>=0?' checked':'')+'> '+esc(mesTxt(x))+(x===h?' (en curso)':'')+'</label>').join('');
+  $('lMeses').onchange = e => {
+    const cajas = [...$('lMeses').querySelectorAll('input[value]')];
+    if (e.target.dataset.todos) cajas.forEach(c => c.checked = e.target.checked ? true : c.value === liqSel.def);   // desmarcar "todos" deja el mes por defecto
+    let sel = cajas.filter(c => c.checked).map(c => c.value);
+    if (!sel.length) { e.target.checked = true; sel = [e.target.value]; toast('Elige al menos un mes', true); }
+    $('lMeses').querySelector('[data-todos]').checked = sel.length === cajas.length;
+    liqSel.meses = sel; guardarSelLiq(); cargarLiquidaciones();
+  };
+  document.addEventListener('click', e => { document.querySelectorAll('details.multi[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 }
-function pintarLiquidaciones(r){
-  const L = r.liquidaciones, s = (c) => L.reduce((t,x)=>t+(Number(x[c])||0),0);
-  const aPagar = L.filter(x=>x.saldo_final>0).reduce((t,x)=>t+x.saldo_final,0), aCobrar = L.filter(x=>x.saldo_final<0).reduce((t,x)=>t-x.saldo_final,0);
-  const cerr = L.filter(x=>x.cerrado).length;
-  $('lResumen').textContent = cerr+' de '+L.length+' cerradas'+((r.avisos||[]).length ? ' · ⚠ '+r.avisos.join(' · ') : '');
+function guardarSelLiq(){ lsSet(LIQ_SEL, JSON.stringify(liqSel)); }
+function pintarFiltroProps(todas){
+  const marcada = id => !liqSel.props.length || liqSel.props.indexOf(id) >= 0;
+  $('lProps').innerHTML = '<label class="todas"><input type="checkbox" data-todos="p"'+(!liqSel.props.length?' checked':'')+'> Todas</label>' +
+    todas.map(p => '<label><input type="checkbox" value="'+esc(p.id)+'"'+(marcada(p.id)?' checked':'')+'> '+esc(p.nombre)+'</label>').join('');
+  $('lProps').onchange = e => {
+    const cajas = [...$('lProps').querySelectorAll('input[value]')];
+    if (e.target.dataset.todos) cajas.forEach(c => c.checked = e.target.checked);
+    const sel = cajas.filter(c => c.checked).map(c => c.value);
+    const fuera = liqSel.props.filter(id => !cajas.some(c => c.value === id));   // elegidas que no tienen datos en estos meses: se conservan
+    if (!sel.length && !fuera.length) { cajas.forEach(c => c.checked = true); liqSel.props = []; }
+    else liqSel.props = (sel.length === cajas.length && !fuera.length) ? [] : sel.concat(fuera);
+    $('lProps').querySelector('[data-todos]').checked = !liqSel.props.length;
+    guardarSelLiq(); pintarLiquidaciones();
+  };
+  const n = liqSel.props.length;
+  $('lPropsT').textContent = 'Propiedades: ' + (!n ? 'todas' : n===1 ? ((todas.find(p => p.id===liqSel.props[0])||{}).nombre || '1 elegida') : n+' elegidas');
+}
+async function cargarLiquidaciones(forzar){
+  iniciarFiltrosLiq();
+  if (forzar) liqCache = {};
+  const n = liqSel.meses.length;
+  $('lMesesT').textContent = n===1 ? mesTxt(liqSel.meses[0]) : n+' meses';
+  const turno = ++liqTurno;          // solo pinta la carga más reciente (cambios rápidos o volver al módulo)
+  $('lTabla').innerHTML = esqueleto(3); $('lKpis').innerHTML = ''; $('lResumen').textContent = '';
+  const faltan = liqSel.meses.filter(m => !liqCache[m]);
+  const rs = await Promise.allSettled(faltan.map(m => api('liquidaciones', { periodo: m })));
+  if (turno !== liqTurno) return;
+  const fallos = [];
+  rs.forEach((r, i) => { if (r.status === 'fulfilled') liqCache[faltan[i]] = r.value; else fallos.push(mesTxt(faltan[i])+': '+r.reason.message); });
+  if (fallos.length) toast('No se pudo cargar '+fallos.join(' · '), true);
+  if (!liqSel.meses.some(m => liqCache[m])) { $('lTabla').innerHTML = '<div class="vacio">'+esc(fallos.join(' · '))+'</div>'; return; }
+  pintarLiquidaciones();
+}
+function pintarLiquidaciones(){
+  const meses = liqSel.meses.filter(m => liqCache[m]).sort().reverse();
+  // propiedades disponibles: las que aparecen en cualquiera de los meses elegidos
+  const vistas = {}; meses.forEach(m => liqCache[m].liquidaciones.forEach(x => { vistas[x.propiedad_id] = x.propiedad; }));
+  pintarFiltroProps(Object.keys(vistas).map(id => ({ id, nombre: vistas[id] })).sort((a,b) => a.nombre.localeCompare(b.nombre)));
+  const ok = x => !liqSel.props.length || liqSel.props.indexOf(x.propiedad_id) >= 0;
+  const filas = []; meses.forEach(m => liqCache[m].liquidaciones.filter(ok).forEach(x => filas.push(Object.assign({ periodo: m }, x))));
+  liqDatos = { meses, filas };
+  const s = c => filas.reduce((t,x)=>t+(Number(x[c])||0),0);
+  // Saldo vigente de cada propiedad = su saldo final en el mes más reciente elegido
+  const ultimo = {}; filas.forEach(x => { if (!ultimo[x.propiedad_id] || x.periodo > ultimo[x.propiedad_id].periodo) ultimo[x.propiedad_id] = x; });
+  const U = Object.values(ultimo);
+  const aPagar = U.filter(x=>x.saldo_final>0).reduce((t,x)=>t+x.saldo_final,0), aCobrar = U.filter(x=>x.saldo_final<0).reduce((t,x)=>t-x.saldo_final,0);
+  const avisos = []; meses.forEach(m => (liqCache[m].avisos||[]).forEach(a => avisos.push(mesTxt(m)+': '+a)));
+  $('lResumen').textContent = filas.filter(x=>x.cerrado).length+' de '+filas.length+' cerradas'+(avisos.length ? ' · ⚠ '+avisos.join(' · ') : '');
+  const varios = meses.length > 1, mesFin = meses[0] ? mesTxt(meses[0]) : '';
   $('lKpis').innerHTML = [
-    { t:'Ingresos de reservas', v:cop(s('ingresos')), h:s('noches')+' noches' },
+    { t:'Ingresos de reservas', v:cop(s('ingresos')), h:s('noches')+' noches'+(varios?' · '+meses.length+' meses':'') },
     { t:'Comisión BLÜM', v:cop(s('comision')), h:'Según el contrato de cada propiedad' },
-    { t:'A pagar a propietarios', v:cop(aPagar), h:L.filter(x=>x.saldo_final>0).length+' propiedad(es)' },
-    { t:'Por cobrar a propietarios', v:cop(aCobrar), h:L.filter(x=>x.saldo_final<0).length+' propiedad(es)' }
+    { t:'A pagar a propietarios', v:cop(aPagar), h:U.filter(x=>x.saldo_final>0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') },
+    { t:'Por cobrar a propietarios', v:cop(aCobrar), h:U.filter(x=>x.saldo_final<0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') }
   ].map(x => '<div class="kpi"><div class="eti">'+esc(x.t)+'</div><div class="v">'+x.v+'</div><div class="h">'+esc(x.h)+'</div></div>').join('');
-  $('lTabla').innerHTML = L.length ? '<table class="tabla"><tr><th>Propiedad</th><th class="num-r">Noches</th><th class="num-r">Ingresos</th><th class="num-r">Comisión</th><th class="num-r">Gastos</th><th class="num-r">Depósitos</th><th class="num-r">Saldo anterior</th><th class="num-r">Pagos</th><th class="num-r">Saldo final</th><th>Estado</th></tr>'+
-    L.map(x => '<tr class="click" data-p="'+esc(x.propiedad_id)+'"><td><b>'+esc(x.propiedad)+'</b><div class="eti">'+esc(x.propietario)+'</div></td><td class="num-r">'+x.noches+'</td><td class="num-r">'+cop(x.ingresos)+'</td><td class="num-r">'+cop(x.comision)+'</td><td class="num-r">'+cop(x.gastos)+'</td><td class="num-r">'+cop(x.depositos)+'</td><td class="num-r">'+cop(x.saldo_anterior)+'</td><td class="num-r">'+cop(x.pagos)+'</td><td class="num-r"><b class="'+(x.saldo_final<0?'terra':'')+'">'+cop(x.saldo_final)+'</b><div class="eti">'+saldoTxt(x.saldo_final)+'</div></td><td>'+(x.cerrado?'<span class="chip ok">Cerrado</span>':'<span class="chip">Borrador</span>')+(x.avisos?'<div class="eti terra">'+x.avisos+' aviso'+(x.avisos>1?'s':'')+'</div>':'')+'</td></tr>').join('')+'</table>'
-    : '<div class="vacio">No hay propiedades con actividad en '+esc(mesTxt(r.periodo))+'</div>';
-  $('lTabla').querySelectorAll('tr[data-p]').forEach(t => t.onclick = () => verLiquidacion(t.dataset.p, r.periodo));
+  const fila = x => '<tr class="click" data-p="'+esc(x.propiedad_id)+'" data-m="'+esc(x.periodo)+'"><td><b>'+esc(x.propiedad)+'</b><div class="eti">'+esc(x.propietario)+(varios?' · '+esc(mesTxt(x.periodo)):'')+'</div></td><td class="num-r">'+x.noches+'</td><td class="num-r">'+cop(x.ingresos)+'</td><td class="num-r">'+cop(x.comision)+'</td><td class="num-r">'+cop(x.gastos)+'</td><td class="num-r">'+cop(x.depositos)+'</td><td class="num-r">'+cop(x.saldo_anterior)+'</td><td class="num-r">'+cop(x.pagos)+'</td><td class="num-r"><b class="'+(x.saldo_final<0?'terra':'')+'">'+cop(x.saldo_final)+'</b><div class="eti">'+saldoTxt(x.saldo_final)+'</div></td><td>'+(x.cerrado?'<span class="chip ok">Cerrado</span>':'<span class="chip">Borrador</span>')+(x.avisos?'<div class="eti terra">'+x.avisos+' aviso'+(x.avisos>1?'s':'')+'</div>':'')+'</td></tr>';
+  const subt = (t, F) => '<tr class="subt"><td>'+esc(t)+'</td><td class="num-r">'+F.reduce((a,x)=>a+x.noches,0)+'</td>'+['ingresos','comision','gastos','depositos'].map(c => '<td class="num-r">'+cop(F.reduce((a,x)=>a+(Number(x[c])||0),0))+'</td>').join('')+'<td></td><td class="num-r">'+cop(F.reduce((a,x)=>a+(Number(x.pagos)||0),0))+'</td><td></td><td></td></tr>';
+  let cuerpo = '';
+  if (varios) meses.forEach(m => { const F = filas.filter(x => x.periodo===m); if (F.length) cuerpo += F.map(fila).join('') + subt('Total '+mesTxt(m), F); });
+  else cuerpo = filas.map(fila).join('');
+  if (filas.length > 1) cuerpo += subt(varios ? 'Total de los '+meses.length+' meses' : 'Total', filas);
+  $('lTabla').innerHTML = filas.length ? '<table class="tabla"><tr><th>Propiedad</th><th class="num-r">Noches</th><th class="num-r">Ingresos</th><th class="num-r">Comisión</th><th class="num-r">Gastos</th><th class="num-r">Depósitos</th><th class="num-r">Saldo anterior</th><th class="num-r">Pagos</th><th class="num-r">Saldo final</th><th>Estado</th></tr>'+cuerpo+'</table>'
+    : '<div class="vacio">No hay propiedades con actividad en la selección</div>';
+  $('lTabla').querySelectorAll('tr[data-p]').forEach(t => t.onclick = () => verLiquidacion(t.dataset.p, t.dataset.m));
 }
 function tablaLiq(cols, filas){ return filas.length ? '<div class="tabla-wrap"><table class="tabla"><tr>'+cols.map(c=>'<th'+(c.n?' class="num-r"':'')+'>'+esc(c.t)+'</th>').join('')+'</tr>'+filas.join('')+'</table></div>' : '<div class="eti">Ninguno</div>'; }
 function htmlLiquidacion(L){
@@ -1393,7 +1470,7 @@ async function verLiquidacion(pid, periodo){
   if ((periodo===LIQ_INICIO || L.primer_mes) && !L.cerrado) acc.unshift({ t:'Saldo inicial', sec:true, fn: () => saldoInicialProp(L) });
   if (L.cerrado) acc.push({ t:'Reabrir', sec:true, fn: async b => {
     const motivo = prompt('¿Por qué reabres '+mesTxt(periodo)+' de '+L.propiedad+'?'); if (!motivo || motivo.trim().length<5) return toast('Escribe el motivo', true);
-    b.disabled = true; try { await api('reabrirLiquidacion', { propiedad_id: pid, periodo, motivo }); toast('Mes reabierto'); cerrarModal(); cargarLiquidaciones(); } catch(e){ toast(e.message, true); b.disabled=false; } } });
+    b.disabled = true; try { await api('reabrirLiquidacion', { propiedad_id: pid, periodo, motivo }); toast('Mes reabierto'); cerrarModal(); cargarLiquidaciones(true); } catch(e){ toast(e.message, true); b.disabled=false; } } });
   else acc.push({ t:'Cerrar mes', fn: async b => {
     if (!confirm('Cerrar '+mesTxt(periodo)+' de '+L.propiedad+' con saldo final de '+cop(L.saldo_final)+'. Después no se pueden registrar ni corregir movimientos de este mes. ¿Cerrar?')) return;
     b.disabled = true;
@@ -1404,7 +1481,7 @@ async function verLiquidacion(pid, periodo){
         if (!confirm(e.message)) { b.disabled=false; return; }
         await api('cerrarLiquidacion', { propiedad_id: pid, periodo, confirmo_pendientes: true });
       }
-      toast('Mes cerrado ✓'); cerrarModal(); cargarLiquidaciones();
+      toast('Mes cerrado ✓'); cerrarModal(); cargarLiquidaciones(true);
     } catch(e){ toast(e.message, true); b.disabled=false; } } });
   modal(L.propiedad+(L.cerrado?' · cerrado':' · borrador'), htmlLiquidacion(L), acc);
 }
@@ -1416,7 +1493,7 @@ function saldoInicialProp(L){
     [{ t:'Cancelar', sec:true, fn: () => verLiquidacion(L.propiedad_id, L.periodo) }, { t:'Guardar', fn: async b => {
       const f = {}; m.querySelectorAll('#fSI [name]').forEach(x => f[x.name]=x.value);
       const v = leerPesos(f.saldo); if (v===null) return mostrarErr('siErr', 'Escribe el saldo en pesos (sin decimales)');
-      b.disabled = true; try { await api('saldoInicialPropietario', { propiedad_id: L.propiedad_id, saldo: v, nota: f.nota, corte: f.corte }); toast('Saldo inicial guardado'); verLiquidacion(L.propiedad_id, L.periodo); cargarLiquidaciones(); } catch(e){ mostrarErr('siErr', e.message); b.disabled=false; } } }]);
+      b.disabled = true; try { await api('saldoInicialPropietario', { propiedad_id: L.propiedad_id, saldo: v, nota: f.nota, corte: f.corte }); toast('Saldo inicial guardado'); verLiquidacion(L.propiedad_id, L.periodo); cargarLiquidaciones(true); } catch(e){ mostrarErr('siErr', e.message); b.disabled=false; } } }]);
 }
 function mesAnteriorTxt(p){ const y=Number(p.slice(0,4)), m=Number(p.slice(5,7)); return m===1 ? (y-1)+'-12' : y+'-'+String(m-1).padStart(2,'0'); }
 function imprimirLiquidacion(L){
