@@ -1443,7 +1443,7 @@ function pintarLiquidaciones(){
     { t:'Saldo a favor de propietarios', v:cop(aPagar), h:U.filter(x=>x.saldo_final>0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') },
     { t:'Saldo a favor de BLÜM', v:cop(aCobrar), h:U.filter(x=>x.saldo_final<0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') }
   ].map(x => '<div class="kpi"><div class="eti">'+esc(x.t)+'</div><div class="v">'+x.v+'</div><div class="h">'+esc(x.h)+'</div></div>').join('');
-  const fila = x => '<tr class="click" data-p="'+esc(x.propiedad_id)+'" data-m="'+esc(x.periodo)+'"><td><b>'+esc(x.propiedad)+'</b><div class="eti">'+esc(x.propietario)+(varios?' · '+esc(mesTxt(x.periodo)):'')+'</div></td><td class="num-r">'+x.noches+'</td><td class="num-r">'+cop(x.ingresos)+'</td><td class="num-r">'+cop(x.comision)+'</td><td class="num-r">'+cop(x.gastos)+'</td><td class="num-r">'+cop(x.depositos)+'</td><td class="num-r">'+cop(x.saldo_anterior)+'</td><td class="num-r">'+cop(x.pagos)+'</td><td class="num-r"><b class="'+(x.saldo_final<0?'terra':'')+'">'+cop(x.saldo_final)+'</b><div class="eti">'+saldoTxt(x.saldo_final)+'</div></td><td>'+(x.cerrado?'<span class="chip ok">Cerrado</span>':'<span class="chip">Borrador</span>')+(x.avisos?'<div class="eti terra">'+x.avisos+' aviso'+(x.avisos>1?'s':'')+'</div>':'')+'</td></tr>';
+  const fila = x => '<tr class="click" data-p="'+esc(x.propiedad_id)+'" data-m="'+esc(x.periodo)+'"><td><b>'+esc(x.propiedad)+'</b><div class="eti">'+esc(x.propietario)+(varios?' · '+esc(mesTxt(x.periodo)):'')+'</div></td><td class="num-r">'+x.noches+'</td><td class="num-r">'+cop(x.ingresos)+'</td><td class="num-r">'+cop(x.comision)+'</td><td class="num-r">'+cop(x.gastos)+'</td><td class="num-r">'+cop(x.depositos)+'</td><td class="num-r">'+cop(x.saldo_anterior)+'</td><td class="num-r">'+cop(x.pagos)+'</td><td class="num-r"><b class="'+(x.saldo_final<0?'terra':'')+'">'+cop(x.saldo_final)+'</b><div class="eti">'+saldoTxt(x.saldo_final)+'</div></td><td>'+(x.cerrado?'<span class="chip ok">Cerrado</span>'+(x.enviado?' <span class="chip ok">Enviado</span>':''):'<span class="chip">Borrador</span>')+(x.avisos?'<div class="eti terra">'+x.avisos+' aviso'+(x.avisos>1?'s':'')+'</div>':'')+'</td></tr>';
   const subt = (t, F) => '<tr class="subt"><td>'+esc(t)+'</td><td class="num-r">'+F.reduce((a,x)=>a+x.noches,0)+'</td>'+['ingresos','comision','gastos','depositos'].map(c => '<td class="num-r">'+cop(F.reduce((a,x)=>a+(Number(x[c])||0),0))+'</td>').join('')+'<td></td><td class="num-r">'+cop(F.reduce((a,x)=>a+(Number(x.pagos)||0),0))+'</td><td></td><td></td></tr>';
   let cuerpo = '';
   if (varios) meses.forEach(m => { const F = filas.filter(x => x.periodo===m); if (F.length) cuerpo += F.map(fila).join('') + subt('Total '+mesTxt(m), F); });
@@ -1478,6 +1478,7 @@ async function verLiquidacion(pid, periodo){
   let L; try { L = await api('liquidacion', { propiedad_id: pid, periodo }); } catch(e){ return toast(e.message, true); }
   if (L.antes_del_inicio) return modal(L.propiedad, '<div class="sub">Esta propiedad se liquida desde el mes siguiente a '+esc(mesTxt(L.inicio))+'.</div>', [{ t:'Cambiar saldo inicial', sec:true, fn: () => saldoInicialProp(L) }]);
   const acc = [{ t:'Imprimir reporte', sec:true, fn: () => imprimirLiquidacion(L) }];
+  if (L.cerrado) acc.push({ t:'Enviar reporte', fn: () => enviarReporteUI(pid, periodo) });
   if ((periodo===LIQ_INICIO || L.primer_mes) && !L.cerrado) acc.unshift({ t:'Saldo inicial', sec:true, fn: () => saldoInicialProp(L) });
   if (L.cerrado) acc.push({ t:'Reabrir', sec:true, fn: async b => {
     const motivo = prompt('¿Por qué reabres '+mesTxt(periodo)+' de '+L.propiedad+'?'); if (!motivo || motivo.trim().length<5) return toast('Escribe el motivo', true);
@@ -1507,16 +1508,45 @@ function saldoInicialProp(L){
       b.disabled = true; try { await api('saldoInicialPropietario', { propiedad_id: L.propiedad_id, saldo: v, nota: f.nota, corte: f.corte }); toast('Saldo inicial guardado'); verLiquidacion(L.propiedad_id, L.periodo); cargarLiquidaciones(true); } catch(e){ mostrarErr('siErr', e.message); b.disabled=false; } } }]);
 }
 function mesAnteriorTxt(p){ const y=Number(p.slice(0,4)), m=Number(p.slice(5,7)); return m===1 ? (y-1)+'-12' : y+'-'+String(m-1).padStart(2,'0'); }
-function imprimirLiquidacion(L){
+async function imprimirLiquidacion(L){
   const w = window.open('', '_blank'); if (!w) return toast('Permite ventanas emergentes para imprimir', true);
-  w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Liquidación '+esc(L.propiedad)+' · '+esc(mesTxt(L.periodo))+'</title><style>'+
-    'body{font-family:Inter,Arial,sans-serif;color:#2b2622;margin:32px;max-width:760px}h1{font-size:1.3rem;margin:0}h3{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:#7a6f66;margin:22px 0 6px}'+
-    '.sub{color:#7a6f66;margin:4px 0 12px}.eti{color:#7a6f66;font-size:.75rem}table{width:100%;border-collapse:collapse;font-size:.85rem}th{text-align:left;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#7a6f66;border-bottom:1px solid #ddd;padding:6px 4px}'+
-    'td{padding:6px 4px;border-bottom:1px solid #eee}.num-r{text-align:right;white-space:nowrap}.liq-tot{display:grid;grid-template-columns:1fr auto;gap:4px 16px;margin-top:16px}.fin{font-weight:700;border-top:1px solid #ccc;padding-top:6px}.terra{color:#b5523b}.msg-err{border:1px solid #b5523b;color:#b5523b;padding:8px;border-radius:6px;font-size:.8rem}.tabla-wrap{overflow:visible}'+
-    '.marca{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #2b2622;padding-bottom:10px;margin-bottom:8px}</style></head><body>'+
-    '<div class="marca"><h1>BLÜM GROUP · Liquidación '+esc(mesTxt(L.periodo))+'</h1><span class="eti">'+esc(L.propiedad)+(L.cerrado?'':' · BORRADOR')+'</span></div>'+htmlLiquidacion(L)+
-    '<p class="eti" style="margin-top:24px">Generado por BLÜM OS el '+esc(hoy())+'.</p></body></html>');
-  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+  w.document.write('<p style="font-family:Inter,Arial,sans-serif;padding:24px">Preparando el informe…</p>');
+  try {
+    const r = await api('previewReporte', { propiedad_id: L.propiedad_id, periodo: L.periodo });
+    w.document.open(); w.document.write(r.html); w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
+  } catch(e){ w.close(); toast(e.message, true); }
+}
+/* Enviar el informe al propietario: vista previa, mensaje editable, PDF + soporte del pago adjuntos */
+async function enviarReporteUI(pid, periodo){
+  let r; try { r = await api('previewReporte', { propiedad_id: pid, periodo }); } catch(e){ return toast(e.message, true); }
+  const m = modal('Enviar informe · '+r.propietario,
+    (r.avisos.length ? '<div class="msg-err">'+r.avisos.map(esc).join('<br>')+'</div>' : '')+
+    '<form id="fRep"><label>Para</label><input name="para" value="'+esc(r.para)+'" placeholder="correo@ejemplo.com">'+
+    (r.sin_correo ? '<label style="display:flex;gap:8px;align-items:center;margin-top:6px;font-size:.85rem"><input type="checkbox" name="guardar" checked style="width:auto"> Guardar este correo en el propietario</label>' : '')+
+    '<div class="eti" style="margin-top:6px">Copia a '+esc(r.cc)+'</div>'+
+    '<label>Asunto</label><input name="asunto" value="'+esc(r.asunto)+'">'+
+    '<label>Mensaje</label><textarea name="mensaje" rows="9">'+esc(r.mensaje)+'</textarea>'+
+    '<div class="eti" style="margin-top:10px">Adjuntos: '+r.adjuntos.map(esc).join(' · ')+'</div></form>'+
+    '<div class="eti" style="margin:14px 0 6px">Vista previa</div><iframe id="repPrev" sandbox="" style="width:100%;height:460px;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe>'+
+    '<div id="repErr" class="msg-err oculto"></div>',
+    [{ t:'Cancelar', sec:true, fn: () => verLiquidacion(pid, periodo) }, { t: r.enviado_en ? 'Reenviar' : 'Enviar', fn: async b => {
+      const f = {}; m.querySelectorAll('#fRep [name]').forEach(x => f[x.name] = x.type==='checkbox' ? x.checked : x.value);
+      if (!f.para.trim()) return mostrarErr('repErr', 'Escribe el correo del propietario');
+      if (r.enviado_en && !confirm('Este informe ya se envió el '+r.enviado_en+'. ¿Reenviarlo?')) return;
+      if (!r.enviado_en && !confirm('Enviar el informe a '+f.para+'?')) return;
+      b.disabled = true; b.textContent = 'Enviando…'; mostrarErr('repErr', '');
+      try {
+        const x = await api('enviarReporte', { propiedad_id: pid, periodo, para: f.para, asunto: f.asunto, mensaje: f.mensaje, guardar_correo: !!f.guardar, reenviar: !!r.enviado_en });
+        toast('Informe enviado a '+x.para+' ✓'); cerrarModal(); cargarLiquidaciones(true);
+      } catch(e){ mostrarErr('repErr', e.message); b.disabled = false; b.textContent = r.enviado_en ? 'Reenviar' : 'Enviar'; }
+    } }]);
+  m.querySelector('.caja').style.maxWidth = '760px';
+  const prev = m.querySelector('#repPrev'); prev.srcdoc = r.html;
+  // la vista previa se actualiza con el mensaje que se escribe (el resto lo arma el servidor)
+  m.querySelector('[name="mensaje"]').addEventListener('input', e => {
+    const d = new DOMParser().parseFromString(r.html, 'text/html'); const caja = [...d.querySelectorAll('div')].find(x => /border-left:3px/.test(x.getAttribute('style')||''));
+    if (caja) caja.textContent = e.target.value; prev.srcdoc = '<!doctype html>'+d.documentElement.outerHTML;
+  });
 }
 function leerPesos(t){   // "11557375", "11.557.375", "-1.234": puntos solo de miles; nada de punto decimal
   const x = String(t||'').replace(/\s/g,'').match(/^(-?)\$?(-?)(\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/);
