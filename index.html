@@ -1274,12 +1274,14 @@ function pintarCaja(r){
   cajaDatos = r; const z = r.resumen;
   const tc = r.cuentas.filter(c => c.tipo!=='Caja');
   $('cKpis').innerHTML = [
-    { t:'Caja NU', v:cop(z.caja), h: z.caja!==z.caja_confirmada ? cop(z.caja-z.caja_confirmada)+' por confirmar en banco' : 'Todo confirmado' },
+    ('por_llegar' in z)
+      ? { t:'Caja NU', v:cop(z.caja), h: z.por_llegar ? '+ '+cop(z.por_llegar)+' de Airbnb por llegar (no incluido)' : 'Todo confirmado' }
+      : { t:'Caja NU', v:cop(z.caja_confirmada), h: z.caja!==z.caja_confirmada ? '+ '+cop(z.caja-z.caja_confirmada)+' de Airbnb por llegar (no incluido)' : 'Todo confirmado' },   // API anterior
     { t:'Deudas (tarjetas y Mauro)', v:cop(z.deudas), h: tc.map(c => c.cuenta+' '+cop(c.saldo)).join(' · ') },
     { t:'Caja libre (antes de propietarios)', v:cop(z.libre_antes_propietarios), h:'Caja confirmada − deudas. Falta restar saldos de propietarios (Fase 5)' }
   ].map(x => '<div class="kpi"><div class="eti">'+esc(x.t)+'</div><div class="v'+(x.v.indexOf('-')>=0?' terra':'')+'">'+x.v+'</div><div class="h">'+esc(x.h)+'</div></div>').join('');
   $('cCuentas').innerHTML = '<table class="tabla"><tr><th>Cuenta</th><th>Corte</th><th class="num-r">Inicial</th><th class="num-r">Aumenta</th><th class="num-r">Disminuye</th><th class="num-r">Saldo</th></tr>'+
-    r.cuentas.map(c => '<tr class="click" data-c="'+esc(c.cuenta)+'"><td><b>'+esc(c.cuenta)+'</b><div class="eti">'+(c.tipo==='Caja'?'Caja':'Deuda')+(c.tipo==='CxP Mauro'?' · por transferir a Mauro':'')+'</div></td><td>'+(c.sin_saldo_inicial?'<span class="terra">Falta saldo inicial</span>':esc(c.corte))+'</td><td class="num-r">'+cop(c.inicial)+'</td><td class="num-r">'+cop(c.mas)+'</td><td class="num-r">'+cop(c.menos)+'</td><td class="num-r"><b>'+cop(c.saldo)+'</b>'+(c.en_transito?'<div class="eti">'+cop(c.en_transito)+' por confirmar</div>':'')+'</td></tr>').join('')+'</table>';
+    r.cuentas.map(c => '<tr class="click" data-c="'+esc(c.cuenta)+'"><td><b>'+esc(c.cuenta)+'</b><div class="eti">'+(c.tipo==='Caja'?'Caja':'Deuda')+(c.tipo==='CxP Mauro'?' · por transferir a Mauro':'')+'</div></td><td>'+(c.sin_saldo_inicial?'<span class="terra">Falta saldo inicial</span>':esc(c.corte))+'</td><td class="num-r">'+cop(c.inicial)+'</td><td class="num-r">'+cop(c.mas)+'</td><td class="num-r">'+cop(c.menos)+'</td><td class="num-r"><b>'+cop(c.saldo)+'</b>'+(c.en_transito?'<div class="eti">+ '+cop(c.en_transito)+' por llegar</div>':'')+'</td></tr>').join('')+'</table>';
   $('cCuentas').querySelectorAll('tr[data-c]').forEach(t => t.onclick = () => editarSaldo(r.cuentas.find(c => c.cuenta===t.dataset.c)));
   opciones($('cConcCuenta'), r.cuentas.map(c => ({ v:c.cuenta, t:c.cuenta })), $('cConcCuenta').value || (r.cuentas[0]||{}).cuenta);
   $('cConcRes').innerHTML = '';
@@ -1335,12 +1337,13 @@ $('bConciliar').onclick = () => {
   const c = cajaDatos.cuentas.find(x => x.cuenta===$('cConcCuenta').value), real = leerPesos($('cConcSaldo').value);
   if (!c || real === null) return toast('Escribe el saldo real del banco', true);
   // En caja se compara contra lo CONFIRMADO: los pagos de Airbnb por confirmar aún no están en el banco
-  const sistema = c.tipo==='Caja' ? c.saldo - (c.en_transito||0) : c.saldo;
+  // API nueva: el saldo ya excluye los pagos de Airbnb por confirmar (trae por_llegar). API vieja: hay que descontarlos.
+  const sistema = ('por_llegar' in (cajaDatos.resumen||{})) || c.tipo!=='Caja' ? c.saldo : c.saldo - (c.en_transito||0);
   const dif = real - sistema;                       // en caja: + = el banco tiene más · en deudas: + = se debe más
   const aFavor = c.tipo==='Caja' ? dif>0 : dif<0;
   const avisoTransito = c.en_transito ? '<p class="sub" style="margin-top:8px">No incluye '+cop(c.en_transito)+' de '+c.n_transito+' pago(s) de Airbnb por confirmar. Si ya llegaron al banco, confírmalos abajo antes de ajustar.</p>' : '';
   const idem = nuevoId();
-  $('cConcRes').innerHTML = '<div class="conc">Sistema'+(c.en_transito?' (confirmado)':'')+': <b>'+cop(sistema)+'</b> · Banco: <b>'+cop(real)+'</b> · Diferencia: <b class="'+(dif?'terra':'verde')+'">'+cop(dif)+'</b>'+avisoTransito+
+  $('cConcRes').innerHTML = '<div class="conc">Sistema: <b>'+cop(sistema)+'</b> · Banco: <b>'+cop(real)+'</b> · Diferencia: <b class="'+(dif?'terra':'verde')+'">'+cop(dif)+'</b>'+avisoTransito+
     (dif ? '<p class="sub" style="margin-top:8px">Antes de ajustar, revisa si falta registrar algún movimiento (gasto, pago, 4x1000, rendimiento del extracto). Si no, registra el ajuste.</p><button class="btn chico" id="bAjuste">Registrar '+(aFavor?'ajuste a favor':'ajuste en contra')+' por '+cop(Math.abs(dif))+'</button>' : '<p class="sub" style="margin-top:8px">Cuadra exacto ✓</p>')+'</div>';
   const b=$('bAjuste'); if (b) b.onclick = () => {
     const motivo = prompt('Motivo del ajuste', 'Conciliación '+c.cuenta+' al '+hoy());
