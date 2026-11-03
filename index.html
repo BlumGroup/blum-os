@@ -63,10 +63,10 @@ main{padding:24px 28px 60px;max-width:1120px}
 .kpi .h{font-size:.76rem;color:var(--muted);margin-top:4px}
 .rejilla{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:16px}
 .tabla{width:100%;border-collapse:collapse;font-size:.86rem}
-.tabla th{font-family:'Inter',sans-serif;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-weight:500}
+.tabla th{font-family:'Inter',sans-serif;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-weight:500}
 .tabla td{padding:9px 6px;border-bottom:1px solid var(--line)}
 .tabla tr:last-child td{border-bottom:none}
-.num-r{text-align:right;font-family:'Inter',sans-serif;white-space:nowrap}
+.num-r,.tabla th.num-r{text-align:right;font-family:'Inter',sans-serif;white-space:nowrap}
 .verde{color:var(--sage)}.terra{color:var(--terra)}
 .vence{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:.86rem;gap:8px}
 .vence:last-child{border-bottom:none}
@@ -1278,7 +1278,7 @@ function pintarCaja(r){
     { t:'Deudas (tarjetas y Mauro)', v:cop(z.deudas), h: tc.map(c => c.cuenta+' '+cop(c.saldo)).join(' · ') },
     { t:'Caja libre (antes de propietarios)', v:cop(z.libre_antes_propietarios), h:'Caja confirmada − deudas. Falta restar saldos de propietarios (Fase 5)' }
   ].map(x => '<div class="kpi"><div class="eti">'+esc(x.t)+'</div><div class="v'+(x.v.indexOf('-')>=0?' terra':'')+'">'+x.v+'</div><div class="h">'+esc(x.h)+'</div></div>').join('');
-  $('cCuentas').innerHTML = '<table class="tabla"><tr><th>Cuenta</th><th>Corte</th><th class="num-r">Inicial</th><th class="num-r">+</th><th class="num-r">−</th><th class="num-r">Saldo</th></tr>'+
+  $('cCuentas').innerHTML = '<table class="tabla"><tr><th>Cuenta</th><th>Corte</th><th class="num-r">Inicial</th><th class="num-r">Aumenta</th><th class="num-r">Disminuye</th><th class="num-r">Saldo</th></tr>'+
     r.cuentas.map(c => '<tr class="click" data-c="'+esc(c.cuenta)+'"><td><b>'+esc(c.cuenta)+'</b><div class="eti">'+(c.tipo==='Caja'?'Caja':'Deuda')+(c.tipo==='CxP Mauro'?' · por transferir a Mauro':'')+'</div></td><td>'+(c.sin_saldo_inicial?'<span class="terra">Falta saldo inicial</span>':esc(c.corte))+'</td><td class="num-r">'+cop(c.inicial)+'</td><td class="num-r">'+cop(c.mas)+'</td><td class="num-r">'+cop(c.menos)+'</td><td class="num-r"><b>'+cop(c.saldo)+'</b>'+(c.en_transito?'<div class="eti">'+cop(c.en_transito)+' por confirmar</div>':'')+'</td></tr>').join('')+'</table>';
   $('cCuentas').querySelectorAll('tr[data-c]').forEach(t => t.onclick = () => editarSaldo(r.cuentas.find(c => c.cuenta===t.dataset.c)));
   opciones($('cConcCuenta'), r.cuentas.map(c => ({ v:c.cuenta, t:c.cuenta })), $('cConcCuenta').value || (r.cuentas[0]||{}).cuenta);
@@ -1288,18 +1288,27 @@ function pintarCaja(r){
   r.por_confirmar.forEach(m => { const k = m.payout_id || m.id; if (!porId[k]) { porId[k] = { k, pagos: [] }; grupos.push(porId[k]); } porId[k].pagos.push(m); });
   $('cPagos').innerHTML = grupos.length ? grupos.map((g, i) => {
     const total = g.pagos.reduce((t,m)=>t+m.valor,0), m0 = g.pagos[0];
-    return '<div class="mov"><div class="cuerpo"><div class="t1"><span>'+esc(g.pagos.length>1 ? 'Pago Airbnb '+g.k+' · '+g.pagos.length+' reservas' : m0.asociado_nombre)+'</span><span class="monto in">+'+cop(total)+'</span></div>'+
-      g.pagos.map(m => '<div class="t2">'+esc(m.fecha)+' · '+esc(m.asociado_nombre)+' · '+cop(m.valor)+(m.estado==='Observado'?' · observado':'')+'</div>').join('')+
+    return '<div class="mov"><div class="cuerpo"><div class="t1"><span>'+esc(g.pagos.length>1 ? 'Pago Airbnb '+g.k+' · '+g.pagos.length+' reservas' : m0.asociado_nombre)+'</span><span class="monto in" data-tot="'+i+'">+'+cop(total)+'</span></div>'+
+      g.pagos.map(m => '<div class="t2">'+(g.pagos.length>1?'<label style="cursor:pointer"><input type="checkbox" data-sel="'+i+'" value="'+esc(m.id)+'" checked> ':'')+esc(m.fecha)+' · '+esc(m.asociado_nombre)+' · '+cop(m.valor)+(m.estado==='Observado'?' · observado':'')+(g.pagos.length>1?'</label>':'')+'</div>').join('')+
+      (g.pagos.length>1?'<div class="t2 h">Marca solo las reservas que llegaron en esta transferencia; las demás quedan por confirmar.</div>':'')+
       '<div class="acc"><input class="valor" data-rec="'+i+'" inputmode="numeric" placeholder="Total que llegó a '+esc(m0.cuenta)+'" style="max-width:200px"><input type="date" data-fec="'+i+'" value="'+hoy()+'" style="max-width:150px"><button class="btn chico" data-conf="'+i+'">Confirmar</button></div></div></div>';
   }).join('') : '<div class="vacio">No hay pagos de Airbnb por confirmar</div>';
   $('cPagos').querySelectorAll('[data-rec]').forEach(x => formatearValor(x));
+  $('cPagos').querySelectorAll('[data-sel]').forEach(x => x.onchange = () => {   // el total del título sigue a lo marcado
+    const g = grupos[Number(x.dataset.sel)], ids = Array.from($('cPagos').querySelectorAll('[data-sel="'+x.dataset.sel+'"]:checked')).map(y => y.value);
+    $('cPagos').querySelector('[data-tot="'+x.dataset.sel+'"]').textContent = '+'+cop(g.pagos.filter(m => ids.indexOf(m.id)>=0).reduce((t,m)=>t+m.valor,0));
+  });
   $('cPagos').querySelectorAll('[data-conf]').forEach(b => b.onclick = async () => {
     const g = grupos[Number(b.dataset.conf)], rec = pesosCampo($('cPagos').querySelector('[data-rec="'+b.dataset.conf+'"]')), fec = $('cPagos').querySelector('[data-fec="'+b.dataset.conf+'"]').value;
     if (!rec) return toast('Escribe el total que llegó a la cuenta', true);
-    const total = g.pagos.reduce((t,m)=>t+m.valor,0), dif = rec - total;
-    if (dif && !confirm('Llegaron '+cop(rec)+' y Airbnb reportó '+cop(total)+'. La diferencia de '+cop(Math.abs(dif))+' quedará como '+(dif<0?'Gastos Financieros de BLÜM':'Ajuste a favor')+(g.pagos.length>1?', repartida entre las '+g.pagos.length+' reservas':'')+'. ¿Confirmar?')) return;
+    const marcados = g.pagos.length>1 ? Array.from($('cPagos').querySelectorAll('[data-sel="'+b.dataset.conf+'"]:checked')).map(x => x.value) : g.pagos.map(m => m.id);
+    const sel = g.pagos.filter(m => marcados.indexOf(m.id) >= 0);
+    if (!sel.length) return toast('Marca al menos una reserva', true);
+    const total = sel.reduce((t,m)=>t+m.valor,0), dif = rec - total;
+    const grande = Math.abs(dif) > total * 0.05 && g.pagos.length > 1;
+    if (dif && !confirm('Llegaron '+cop(rec)+' y Airbnb reportó '+cop(total)+'. La diferencia de '+cop(Math.abs(dif))+' quedará como '+(dif<0?'Gastos Financieros de BLÜM':'Ajuste a favor')+(sel.length>1?', repartida entre las '+sel.length+' reservas':'')+'.'+(grande?'\n\nOJO: la diferencia es grande. Si alguna reserva no llegó en esta transferencia, cancela y desmárcala.':'')+' ¿Confirmar?')) return;
     b.disabled = true;
-    try { await api('confirmarPagoAirbnb', { ids: g.pagos.map(m => m.id), recibido: rec, fecha: fec }); toast('Pago confirmado ✓'); lsDel(LS.panel); cargarCaja(); }
+    try { await api('confirmarPagoAirbnb', { ids: sel.map(m => m.id), recibido: rec, fecha: fec }); toast('Pago confirmado ✓'); lsDel(LS.panel); cargarCaja(); }
     catch(e){ toast(e.message, true); b.disabled = false; }
   });
 }
