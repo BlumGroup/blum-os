@@ -170,6 +170,10 @@ textarea{min-height:70px;resize:vertical}
 .tabla tr.click{cursor:pointer}.tabla tr.click:hover td{background:var(--cream)}
 .wa{color:var(--sage);text-decoration:none;font-weight:500}
 .tabla-wrap{overflow-x:auto}
+.liq-tot{display:grid;grid-template-columns:1fr auto;gap:4px 16px;margin-top:12px;font-size:.9rem}
+.liq-tot .fin{font-weight:600;border-top:1px solid var(--line);padding-top:6px}
+.chip{display:inline-block;font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:20px;border:1px solid var(--line)}
+.chip.ok{color:var(--sage);border-color:var(--sage)}
 .grupo{font-weight:600;font-size:.9rem;margin:18px 0 8px}
 .grupo:first-child{margin-top:0}
 
@@ -449,6 +453,13 @@ textarea{min-height:70px;resize:vertical}
         <div class="card" style="margin-top:14px"><h3 class="tit-card">Pagos Airbnb por confirmar</h3><div id="cPagos"></div></div>
       </section>
 
+      <section id="m-liquidaciones" class="oculto">
+        <div class="herr"><label class="eti" for="lMes">Mes</label><select id="lMes"></select><span class="eti" id="lResumen"></span></div>
+        <div class="kpis" id="lKpis"></div>
+        <div class="card"><h3 class="tit-card">Propiedades</h3><div class="tabla-wrap" id="lTabla"></div>
+          <p class="eti" style="margin-top:10px">Saldo final positivo: BLÜM le debe al propietario. Negativo: el propietario le debe a BLÜM. Toca una propiedad para ver el detalle, cerrar el mes o imprimir el reporte.</p></div>
+      </section>
+
       <section id="m-prox" class="oculto">
         <div class="prox">
           <div class="ico" id="xIco"></div>
@@ -499,7 +510,7 @@ const MODULOS = [
   { id:'contratos', sec:'Directorio', t:'Contratos', i:'contrato', d:'Condiciones negociadas por propiedad y cliente, con su vigencia: comisión, base, modelo de aseo, IVA y 4x1000.' },
   { id:'clientes', sec:'Directorio', t:'Clientes Consultoría', i:'maletin', d:'Retainers de Consultoría, cobros esperados y cuentas por cobrar con días de mora.' },
   { id:'caja', sec:'Finanzas', t:'Caja y tarjetas', i:'caja', d:'Saldo NU, deuda TC NU, pendiente por transferir a Mauro y Caja libre de BLÜM. Confirmación de los Pagos Airbnb contra el banco.' },
-  { id:'liquidaciones', sec:'Finanzas', t:'Liquidaciones', i:'liquida', fase:'Fase 5', d:'Cierre mensual por propietario, saldo acumulado, pagos y depósitos, y envío del reporte con previsualización.' },
+  { id:'liquidaciones', sec:'Finanzas', t:'Liquidaciones', i:'liquida', d:'Cierre mensual por propietario, saldo acumulado, pagos y depósitos, y envío del reporte con previsualización.' },
   { id:'pyg', sec:'Finanzas', t:'P&G', i:'pyg', fase:'Fase 4', d:'Estado de resultados por negocio (Inmobiliaria por canal, Consultoría) y consolidado, mes a mes.' },
   { id:'honorarios', sec:'Finanzas', t:'Honorarios', i:'honor', fase:'Fase 4', d:'Pagos al equipo por persona, mes y negocio.' },
   { id:'presupuestos', sec:'Estrategia', t:'Presupuestos', i:'ppto', fase:'Siguiente etapa', d:'Presupuesto por negocio y comparación contra lo real cada mes.' },
@@ -507,7 +518,7 @@ const MODULOS = [
   { id:'marketing', sec:'Estrategia', t:'Marketing', i:'mkt', fase:'Siguiente etapa', d:'Inversión en pauta, origen de reservas y clientes, y retorno por canal.' },
   { id:'configuracion', sec:'Configuración', t:'Usuarios y listas', i:'ajustes', fase:'Fase 2', d:'Usuarios y roles, categorías, cuentas y listas del sistema.' }
 ];
-const VISTA = { panel:'m-panel', bandeja:'m-bandeja', movimientos:'m-movimientos', reservas:'m-reservas', propiedades:'m-propiedades', propietarios:'m-propietarios', contratos:'m-contratos', servicios:'m-servicios', clientes:'m-clientes', caja:'m-caja' };
+const VISTA = { panel:'m-panel', bandeja:'m-bandeja', movimientos:'m-movimientos', reservas:'m-reservas', propiedades:'m-propiedades', propietarios:'m-propietarios', contratos:'m-contratos', servicios:'m-servicios', clientes:'m-clientes', caja:'m-caja', liquidaciones:'m-liquidaciones' };
 const DIRECTORIO = ['propiedades','propietarios','contratos','servicios','clientes'];
 
 const LS = { tok:'blumos_tok', ses:'blumos_ses', cat:'blumos_cat2', lista:'blumos_lista_', bandeja:'blumos_bandeja', panel:'blumos_panel', res:'blumos_res_' };
@@ -612,6 +623,7 @@ function ir(id, sub){
   if (m.id==='reservas') pestana('tabRes', sub);
   if (DIRECTORIO.indexOf(m.id)>=0) cargarDirectorio();
   if (m.id==='caja') cargarCaja();
+  if (m.id==='liquidaciones') cargarLiquidaciones();
 }
 function pestana(grupo, t){
   const cont = $(grupo); const btns = cont.querySelectorAll('button');
@@ -1318,6 +1330,105 @@ function pintarCaja(r){
     try { await api('confirmarPagoAirbnb', { ids: sel.map(m => m.id), recibido: rec, fecha: fec }); toast('Pago confirmado ✓'); lsDel(LS.panel); cargarCaja(); }
     catch(e){ toast(e.message, true); b.disabled = false; }
   });
+}
+/* ───── Liquidaciones ───── */
+let liqDatos = null;
+const LIQ_INICIO = '2026-10';
+function mesTxt(p){ return MESL[Number(p.slice(5,7))-1]+' '+p.slice(0,4); }
+function saldoTxt(v){ return v>0 ? 'A pagar al propietario' : v<0 ? 'El propietario debe' : 'En cero'; }
+function opcionesMesLiq(){
+  const sel = $('lMes'); if (sel.options.length) return;
+  const h = hoy().slice(0,7); const ms = []; let p = LIQ_INICIO;
+  while (p <= h) { ms.push(p); const y=Number(p.slice(0,4)), m=Number(p.slice(5,7)); p = m===12 ? (y+1)+'-01' : y+'-'+String(m+1).padStart(2,'0'); }
+  // por defecto: el último mes terminado
+  const def = ms.length>1 ? ms[ms.length-2] : ms[0];
+  opciones(sel, ms.reverse().map(x => ({ v:x, t:mesTxt(x)+(x===h?' (en curso)':'') })), def);
+  sel.onchange = cargarLiquidaciones;
+}
+async function cargarLiquidaciones(){
+  opcionesMesLiq();
+  $('lTabla').innerHTML = esqueleto(3); $('lKpis').innerHTML = '';
+  try { const r = await api('liquidaciones', { periodo: $('lMes').value }); liqDatos = r; pintarLiquidaciones(r); }
+  catch(e){ $('lTabla').innerHTML = '<div class="vacio">'+esc(e.message)+'</div>'; }
+}
+function pintarLiquidaciones(r){
+  const L = r.liquidaciones, s = (c) => L.reduce((t,x)=>t+(Number(x[c])||0),0);
+  const aPagar = L.filter(x=>x.saldo_final>0).reduce((t,x)=>t+x.saldo_final,0), aCobrar = L.filter(x=>x.saldo_final<0).reduce((t,x)=>t-x.saldo_final,0);
+  const cerr = L.filter(x=>x.cerrado).length;
+  $('lResumen').textContent = cerr+' de '+L.length+' cerradas'+((r.avisos||[]).length ? ' · ⚠ '+r.avisos.join(' · ') : '');
+  $('lKpis').innerHTML = [
+    { t:'Ingresos de reservas', v:cop(s('ingresos')), h:s('noches')+' noches' },
+    { t:'Comisión BLÜM', v:cop(s('comision')), h:'Según el contrato de cada propiedad' },
+    { t:'A pagar a propietarios', v:cop(aPagar), h:L.filter(x=>x.saldo_final>0).length+' propiedad(es)' },
+    { t:'Por cobrar a propietarios', v:cop(aCobrar), h:L.filter(x=>x.saldo_final<0).length+' propiedad(es)' }
+  ].map(x => '<div class="kpi"><div class="eti">'+esc(x.t)+'</div><div class="v">'+x.v+'</div><div class="h">'+esc(x.h)+'</div></div>').join('');
+  $('lTabla').innerHTML = L.length ? '<table class="tabla"><tr><th>Propiedad</th><th class="num-r">Noches</th><th class="num-r">Ingresos</th><th class="num-r">Comisión</th><th class="num-r">Gastos</th><th class="num-r">Depósitos</th><th class="num-r">Saldo anterior</th><th class="num-r">Pagos</th><th class="num-r">Saldo final</th><th>Estado</th></tr>'+
+    L.map(x => '<tr class="click" data-p="'+esc(x.propiedad_id)+'"><td><b>'+esc(x.propiedad)+'</b><div class="eti">'+esc(x.propietario)+'</div></td><td class="num-r">'+x.noches+'</td><td class="num-r">'+cop(x.ingresos)+'</td><td class="num-r">'+cop(x.comision)+'</td><td class="num-r">'+cop(x.gastos)+'</td><td class="num-r">'+cop(x.depositos)+'</td><td class="num-r">'+cop(x.saldo_anterior)+'</td><td class="num-r">'+cop(x.pagos)+'</td><td class="num-r"><b class="'+(x.saldo_final<0?'terra':'')+'">'+cop(x.saldo_final)+'</b><div class="eti">'+saldoTxt(x.saldo_final)+'</div></td><td>'+(x.cerrado?'<span class="chip ok">Cerrado</span>':'<span class="chip">Borrador</span>')+(x.avisos?'<div class="eti terra">'+x.avisos+' aviso'+(x.avisos>1?'s':'')+'</div>':'')+'</td></tr>').join('')+'</table>'
+    : '<div class="vacio">No hay propiedades con actividad en '+esc(mesTxt(r.periodo))+'</div>';
+  $('lTabla').querySelectorAll('tr[data-p]').forEach(t => t.onclick = () => verLiquidacion(t.dataset.p, r.periodo));
+}
+function tablaLiq(cols, filas){ return filas.length ? '<div class="tabla-wrap"><table class="tabla"><tr>'+cols.map(c=>'<th'+(c.n?' class="num-r"':'')+'>'+esc(c.t)+'</th>').join('')+'</tr>'+filas.join('')+'</table></div>' : '<div class="eti">Ninguno</div>'; }
+function htmlLiquidacion(L){
+  const pct = L.contrato ? Math.round(L.contrato.comision_pct*1000)/10 : 0;
+  const res = tablaLiq([{t:'Huésped'},{t:'Fechas'},{t:'Noches',n:1},{t:'Valor del mes',n:1}], L.reservas.map(r =>
+    '<tr><td>'+esc(r.huesped)+'<div class="eti">'+esc(r.plataforma)+' · '+esc(r.codigo)+(r.cobrado_por==='Propietario'?' · cobró el propietario':'')+'</div></td><td>'+esc(r.checkin)+' → '+esc(r.checkout)+'</td><td class="num-r">'+r.noches_mes+(r.noches_mes!==r.noches?' de '+r.noches:'')+'</td><td class="num-r">'+cop(r.valor_mes)+'</td></tr>'));
+  const lista = (a) => tablaLiq([{t:'Fecha'},{t:'Concepto'},{t:'Valor',n:1}], a.map(g => '<tr><td>'+esc(g.fecha)+'</td><td>'+esc(g.categoria)+'<div class="eti">'+esc(g.detalle)+(g.estado!=='Verificado'?' · '+esc(g.estado):'')+'</div></td><td class="num-r">'+cop(g.valor)+'</td></tr>'));
+  const fila = (t, v, cls) => '<span'+(cls?' class="'+cls+'"':'')+'>'+esc(t)+'</span><span class="num-r'+(cls?' '+cls:'')+'">'+v+'</span>';
+  return '<div class="sub">'+esc(L.propietario)+' · '+esc(mesTxt(L.periodo))+(L.contrato?' · comisión '+pct+' % sobre '+esc(L.contrato.base.toLowerCase()):'')+'</div>'+
+    (L.avisos && L.avisos.length ? '<div class="msg-err" style="margin-top:10px">'+L.avisos.map(esc).join('<br>')+'</div>' : '')+
+    '<h3 class="tit-card" style="margin-top:14px">Reservas · '+L.noches+' noches</h3>'+res+
+    '<h3 class="tit-card" style="margin-top:14px">Gastos a cargo del propietario</h3>'+lista(L.gastos)+
+    (L.depositos.length?'<h3 class="tit-card" style="margin-top:14px">Depósitos del propietario</h3>'+lista(L.depositos):'')+
+    (L.pagos.length?'<h3 class="tit-card" style="margin-top:14px">Pagos al propietario en el mes</h3>'+lista(L.pagos):'')+
+    '<div class="liq-tot">'+fila('Ingresos de reservas', cop(L.ingresos))+fila('− Comisión BLÜM'+(pct?' ('+pct+' %)':''), cop(L.comision))+
+    (L.cobrado_propietario?fila('− Cobrado directo por el propietario', cop(L.cobrado_propietario)):'')+fila('− Gastos a cargo del propietario', cop(L.total_gastos))+
+    (L.total_depositos?fila('+ Depósitos del propietario', cop(L.total_depositos)):'')+fila('= Resultado del mes', cop(L.resultado_mes), 'fin')+
+    fila('+ Saldo anterior'+(L.anterior_cerrado?'':' (provisional)'), cop(L.saldo_anterior))+fila('− Pagos al propietario en el mes', cop(L.total_pagos))+
+    fila('= Saldo final · '+saldoTxt(L.saldo_final), cop(L.saldo_final), 'fin'+(L.saldo_final<0?' terra':''))+'</div>';
+}
+async function verLiquidacion(pid, periodo){
+  let L; try { L = await api('liquidacion', { propiedad_id: pid, periodo }); } catch(e){ return toast(e.message, true); }
+  if (L.antes_del_inicio) return modal(L.propiedad, '<div class="sub">Esta propiedad se liquida desde el mes siguiente a '+esc(mesTxt(L.inicio))+'.</div>', [{ t:'Cambiar saldo inicial', sec:true, fn: () => saldoInicialProp(L) }]);
+  const acc = [{ t:'Imprimir reporte', sec:true, fn: () => imprimirLiquidacion(L) }];
+  if ((periodo===LIQ_INICIO || L.primer_mes) && !L.cerrado) acc.unshift({ t:'Saldo inicial', sec:true, fn: () => saldoInicialProp(L) });
+  if (L.cerrado) acc.push({ t:'Reabrir', sec:true, fn: async b => {
+    const motivo = prompt('¿Por qué reabres '+mesTxt(periodo)+' de '+L.propiedad+'?'); if (!motivo || motivo.trim().length<5) return toast('Escribe el motivo', true);
+    b.disabled = true; try { await api('reabrirLiquidacion', { propiedad_id: pid, periodo, motivo }); toast('Mes reabierto'); cerrarModal(); cargarLiquidaciones(); } catch(e){ toast(e.message, true); b.disabled=false; } } });
+  else acc.push({ t:'Cerrar mes', fn: async b => {
+    if (!confirm('Cerrar '+mesTxt(periodo)+' de '+L.propiedad+' con saldo final de '+cop(L.saldo_final)+'. Después no se pueden registrar ni corregir movimientos de este mes. ¿Cerrar?')) return;
+    b.disabled = true;
+    try {
+      try { await api('cerrarLiquidacion', { propiedad_id: pid, periodo }); }
+      catch(e){   // el servidor pide confirmar los avisos (movimientos sin verificar, saldo provisional, contrato…)
+        if (!/confirma (si|que) quieres cerrar igual/i.test(e.message)) throw e;
+        if (!confirm(e.message)) { b.disabled=false; return; }
+        await api('cerrarLiquidacion', { propiedad_id: pid, periodo, confirmo_pendientes: true });
+      }
+      toast('Mes cerrado ✓'); cerrarModal(); cargarLiquidaciones();
+    } catch(e){ toast(e.message, true); b.disabled=false; } } });
+  modal(L.propiedad+(L.cerrado?' · cerrado':' · borrador'), htmlLiquidacion(L), acc);
+}
+function saldoInicialProp(L){
+  const h = hoy().slice(0,7), cortes = []; let p = mesAnteriorTxt(LIQ_INICIO);
+  while (p < h) { cortes.push(p); const y=Number(p.slice(0,4)), mm=Number(p.slice(5,7)); p = mm===12 ? (y+1)+'-01' : y+'-'+String(mm+1).padStart(2,'0'); }
+  const m = modal('Saldo inicial · '+L.propiedad, '<div class="sub">Lo que BLÜM le debía al propietario (positivo) o lo que él debía (negativo) al cierre del mes de corte. La propiedad se liquida desde el mes siguiente. Si el cierre de ese mes se pagó después, va positivo y ese pago lo deja en cero.</div>'+
+    '<form id="fSI"><label>Mes de corte</label><select name="corte">'+cortes.map((c,i) => '<option value="'+c+'"'+(c===(L.inicio||cortes[0])?' selected':'')+'>'+esc(mesTxt(c))+(i===0?'':' (empieza a liquidarse en '+esc(mesTxt(cortes[i+1]||h))+')')+'</option>').join('')+'</select><label>Saldo</label><input name="saldo" inputmode="numeric" value="'+esc(String(L.antes_del_inicio ? (L.saldo_final||0) : (L.saldo_anterior||0)))+'" placeholder="Ej.: 1486014 o -1319924"><label>De dónde sale</label><input name="nota" value="'+esc(L.saldo_inicial_nota||'')+'" placeholder="Ej.: Cierre septiembre pagado el 7-oct"></form><div id="siErr" class="msg-err oculto"></div>',
+    [{ t:'Cancelar', sec:true, fn: () => verLiquidacion(L.propiedad_id, L.periodo) }, { t:'Guardar', fn: async b => {
+      const f = {}; m.querySelectorAll('#fSI [name]').forEach(x => f[x.name]=x.value);
+      const v = leerPesos(f.saldo); if (v===null) return mostrarErr('siErr', 'Escribe el saldo en pesos (sin decimales)');
+      b.disabled = true; try { await api('saldoInicialPropietario', { propiedad_id: L.propiedad_id, saldo: v, nota: f.nota, corte: f.corte }); toast('Saldo inicial guardado'); verLiquidacion(L.propiedad_id, L.periodo); cargarLiquidaciones(); } catch(e){ mostrarErr('siErr', e.message); b.disabled=false; } } }]);
+}
+function mesAnteriorTxt(p){ const y=Number(p.slice(0,4)), m=Number(p.slice(5,7)); return m===1 ? (y-1)+'-12' : y+'-'+String(m-1).padStart(2,'0'); }
+function imprimirLiquidacion(L){
+  const w = window.open('', '_blank'); if (!w) return toast('Permite ventanas emergentes para imprimir', true);
+  w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Liquidación '+esc(L.propiedad)+' · '+esc(mesTxt(L.periodo))+'</title><style>'+
+    'body{font-family:Inter,Arial,sans-serif;color:#2b2622;margin:32px;max-width:760px}h1{font-size:1.3rem;margin:0}h3{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:#7a6f66;margin:22px 0 6px}'+
+    '.sub{color:#7a6f66;margin:4px 0 12px}.eti{color:#7a6f66;font-size:.75rem}table{width:100%;border-collapse:collapse;font-size:.85rem}th{text-align:left;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:#7a6f66;border-bottom:1px solid #ddd;padding:6px 4px}'+
+    'td{padding:6px 4px;border-bottom:1px solid #eee}.num-r{text-align:right;white-space:nowrap}.liq-tot{display:grid;grid-template-columns:1fr auto;gap:4px 16px;margin-top:16px}.fin{font-weight:700;border-top:1px solid #ccc;padding-top:6px}.terra{color:#b5523b}.msg-err{border:1px solid #b5523b;color:#b5523b;padding:8px;border-radius:6px;font-size:.8rem}.tabla-wrap{overflow:visible}'+
+    '.marca{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #2b2622;padding-bottom:10px;margin-bottom:8px}</style></head><body>'+
+    '<div class="marca"><h1>BLÜM GROUP · Liquidación '+esc(mesTxt(L.periodo))+'</h1><span class="eti">'+esc(L.propiedad)+(L.cerrado?'':' · BORRADOR')+'</span></div>'+htmlLiquidacion(L)+
+    '<p class="eti" style="margin-top:24px">Generado por BLÜM OS el '+esc(hoy())+'.</p></body></html>');
+  w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
 }
 function leerPesos(t){   // "11557375", "11.557.375", "-1.234": puntos solo de miles; nada de punto decimal
   const x = String(t||'').replace(/\s/g,'').match(/^(-?)\$?(-?)(\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/);
