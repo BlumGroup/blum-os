@@ -36,6 +36,8 @@ h1{font-size:1.5rem;font-weight:700;margin:4px 0 2px}
 .kpi{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
 .kpi .v{font-size:1.25rem;font-weight:700;margin-top:6px}.kpi .h{font-size:.74rem;color:var(--muted);margin-top:3px}
 .verde{color:var(--sage)}.terra{color:var(--terra)}
+.fila-tit{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.fmes{border:1px solid var(--line);background:var(--paper);border-radius:20px;padding:6px 12px;font:inherit;font-size:.82rem;text-transform:none;letter-spacing:0;color:var(--ink)}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
 .tabs button{border:1px solid var(--line);background:var(--paper);border-radius:20px;padding:7px 14px;cursor:pointer;font-size:.85rem}
 .tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -109,7 +111,7 @@ const fecha = s => { const [y,m,d] = s.split('-').map(Number); const f = new Dat
 function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
 function lsSet(k, v){ try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch(e){} }
 function toast(t, e){ const x = document.createElement('div'); x.className = 'toast' + (e ? ' e' : ''); x.textContent = t; document.body.appendChild(x); setTimeout(() => x.remove(), e ? 5000 : 2600); }
-let token = lsGet(LS_TOK), datos = null, actual = null;
+let token = lsGet(LS_TOK), datos = null, actual = null, mesSel = '';
 
 async function api(accion, d){
   let r, j;
@@ -121,7 +123,7 @@ async function api(accion, d){
   return j;
 }
 function vista(v){ $('vLogin').classList.toggle('oculto', v !== 'login'); $('vPortal').classList.toggle('oculto', v !== 'portal'); $('cabAcc').classList.toggle('oculto', v !== 'portal'); }
-function salir(silencioso){
+function salir(silencioso){ mesSel = ''; actual = null;
   if (token && !silencioso) fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body: JSON.stringify({ accion:'p_logout', token }) }).catch(() => {});
   token = null; datos = null; lsSet(LS_TOK, null); cerrarModal(); vista('login');
 }
@@ -148,30 +150,37 @@ async function cargar(){
   if (!datos.propiedades.length) { $('pProps').innerHTML = ''; $('pCuerpo').innerHTML = '<div class="card vacio">Todavía no hay propiedades activas en tu cuenta.</div>'; return; }
   if (!actual || !datos.propiedades.some(p => p.id === actual)) actual = datos.propiedades[0].id;
   $('pProps').innerHTML = datos.propiedades.length > 1 ? datos.propiedades.map(p => '<button data-p="' + esc(p.id) + '" class="' + (p.id === actual ? 'on' : '') + '">' + esc(p.nombre) + '</button>').join('') : '';
-  $('pProps').querySelectorAll('button').forEach(b => b.onclick = () => { actual = b.dataset.p; cargarVista(); });
+  $('pProps').querySelectorAll('button').forEach(b => b.onclick = () => { actual = b.dataset.p; mesSel = ''; cargarVista(); });
   cargarVista();
 }
 function cargarVista(){
   $('pProps').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === actual));
   const P = datos.propiedades.find(p => p.id === actual);
-  const U = P.ultimo;
-  const favor = P.saldo > 0 ? 'A tu favor' : P.saldo < 0 ? 'A favor de BLÜM GROUP' : 'En cero';
+  if (P.informes.length < 2 || !P.informes.some(i => i.periodo === mesSel)) mesSel = '';
+  const U = mesSel ? P.informes.find(i => i.periodo === mesSel) : P.ultimo;
+  const saldo = mesSel ? U.saldo_final : P.saldo;
+  const lista = mesSel ? [U] : P.informes;
+  const favor = saldo > 0 ? 'A tu favor' : saldo < 0 ? 'A favor de BLÜM GROUP' : 'En cero';
+  const cap = t => t.replace(/^./, c => c.toUpperCase());
+  const filtro = P.informes.length > 1 ? '<select id="fMes" class="fmes" aria-label="Filtrar por mes"><option value="">Todos los meses</option>' +
+    P.informes.map(i => '<option value="' + esc(i.periodo) + '"' + (i.periodo === mesSel ? ' selected' : '') + '>' + esc(cap(mesTxt(i.periodo))) + '</option>').join('') + '</select>' : '';
   const kpis = [
-    { t:'Saldo acumulado', v: cop(Math.abs(P.saldo)), h: favor + (U ? ' · a ' + mesTxt(U.periodo) : ''), c: P.saldo < 0 ? 'terra' : 'verde' },
-    { t:'Último cierre', v: U ? cop(U.resultado_mes) : '—', h: U ? 'Saldo del periodo · ' + mesTxt(U.periodo) : 'Aún no hay cierres' },
+    { t:'Saldo acumulado', v: cop(Math.abs(saldo)), h: favor + (U ? ' · a ' + mesTxt(U.periodo) : ''), c: saldo < 0 ? 'terra' : 'verde' },
+    { t: mesSel ? 'Cierre del mes' : 'Último cierre', v: U ? cop(U.resultado_mes) : '—', h: U ? 'Saldo del periodo · ' + mesTxt(U.periodo) : 'Aún no hay cierres' },
     { t:'Ocupación', v: U ? U.ocupacion + ' %' : '—', h: U ? U.noches + ' noches en ' + MESL[Number(U.periodo.slice(5,7)) - 1] : '' },
     { t:'Próximas reservas', v: String(P.proximas.filter(r => !r.en_curso).length), h: P.proximas.some(r => r.en_curso) ? 'Hay huéspedes ahora' : 'Próximos 4 meses' }
   ];
   $('pCuerpo').innerHTML =
     '<div class="kpis">' + kpis.map(k => '<div class="kpi"><div class="eti">' + esc(k.t) + '</div><div class="v ' + (k.c || '') + '">' + esc(k.v) + '</div><div class="h">' + esc(k.h) + '</div></div>').join('') + '</div>' +
-    '<div class="card"><div class="tit-card">Informes de cierre</div>' +
-      (P.informes.length ? P.informes.map(i => '<div class="fila click" data-m="' + esc(i.periodo) + '"><div><div class="t1">' + esc(mesTxt(i.periodo).replace(/^./, c => c.toUpperCase())) + '</div><div class="t2">' + i.noches + ' noches · ingresos ' + cop(i.ingresos) + ' · gastos ' + cop(i.gastos) + '</div></div>' +
+    '<div class="card"><div class="tit-card fila-tit"><span>Informes de cierre</span>' + filtro + '</div>' +
+      (lista.length ? lista.map(i => '<div class="fila click" data-m="' + esc(i.periodo) + '"><div><div class="t1">' + esc(mesTxt(i.periodo).replace(/^./, c => c.toUpperCase())) + '</div><div class="t2">' + i.noches + ' noches · ingresos ' + cop(i.ingresos) + ' · gastos ' + cop(i.gastos) + '</div></div>' +
         '<div class="num"><div class="t1 ' + (i.resultado_mes < 0 ? 'terra' : '') + '">' + cop(i.resultado_mes) + '</div><div class="t2">Ver informe ›</div></div></div>').join('')
         : '<div class="vacio">Tu primer informe aparecerá aquí cuando cerremos el mes.</div>') + '</div>' +
     '<div class="card"><div class="tit-card">Reservas en curso y próximas</div>' +
       (P.proximas.length ? P.proximas.map(r => '<div class="fila"><div><div class="t1">' + esc(fecha(r.checkin)) + ' → ' + esc(fecha(r.checkout)) + (r.en_curso ? ' <span class="chip">En curso</span>' : '') + '</div><div class="t2">' + r.noches + ' noche' + (r.noches > 1 ? 's' : '') + (r.personas ? ' · ' + r.personas + ' huésped' + (r.personas > 1 ? 'es' : '') : '') + ' · ' + esc(r.plataforma) + '</div></div><div class="num t2">' + esc(r.huesped) + '</div></div>').join('')
         : '<div class="vacio">No hay reservas próximas registradas.</div>') + '</div>';
   $('pCuerpo').querySelectorAll('.fila.click').forEach(f => f.onclick = () => verInforme(actual, f.dataset.m));
+  if ($('fMes')) $('fMes').onchange = e => { mesSel = e.target.value; cargarVista(); };
 }
 
 /* ── informe ── */
