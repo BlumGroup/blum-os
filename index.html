@@ -1277,6 +1277,11 @@ function pintarCaja(r){
     ('por_llegar' in z)
       ? { t:'Caja NU', v:cop(z.caja), h: z.por_llegar ? '+ '+cop(z.por_llegar)+' de Airbnb por llegar (no incluido)' : 'Todo confirmado' }
       : { t:'Caja NU', v:cop(z.caja_confirmada), h: z.caja!==z.caja_confirmada ? '+ '+cop(z.caja-z.caja_confirmada)+' de Airbnb por llegar (no incluido)' : 'Todo confirmado' },   // API anterior
+    (function(){   // lo que Airbnb ya pagó y aún no llega al banco: sirve para proyectar
+      const tr = Number(('por_llegar' in z) ? (z.por_llegar||0) : (z.caja - z.caja_confirmada)) || 0, n = r.cuentas.reduce((t,c)=>t+(Number(c.n_transito)||0),0);
+      const cajaConf = Number(('por_llegar' in z) ? z.caja : z.caja_confirmada) || 0;
+      return { t:'Saldo en tránsito por confirmar', v:cop(tr), h: tr ? n+' pago'+(n===1?'':'s')+' de Airbnb · caja proyectada '+cop(cajaConf+tr) : 'Nada en camino' };
+    })(),
     { t:'Deudas (tarjetas y Mauro)', v:cop(z.deudas), h: tc.map(c => c.cuenta+' '+cop(c.saldo)).join(' · ') },
     { t:'Caja libre (antes de propietarios)', v:cop(z.libre_antes_propietarios), h:'Caja confirmada − deudas. Falta restar saldos de propietarios (Fase 5)' }
   ].map(x => '<div class="kpi"><div class="eti">'+esc(x.t)+'</div><div class="v'+(x.v.indexOf('-')>=0?' terra':'')+'">'+x.v+'</div><div class="h">'+esc(x.h)+'</div></div>').join('');
