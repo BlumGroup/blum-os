@@ -471,7 +471,7 @@ textarea{min-height:70px;resize:vertical}
           <span class="eti" id="lResumen"></span></div>
         <div class="kpis" id="lKpis"></div>
         <div class="card"><h3 class="tit-card">Propiedades</h3><div class="tabla-wrap" id="lTabla"></div>
-          <p class="eti" style="margin-top:10px">Saldo final positivo: BLÜM le debe al propietario. Negativo: el propietario le debe a BLÜM. Toca una propiedad para ver el detalle, cerrar el mes o imprimir el reporte.</p></div>
+          <p class="eti" style="margin-top:10px">Saldo acumulado = lo que queda pendiente entre BLÜM y el propietario al cierre del mes (lo del mes + lo que venía de meses anteriores − lo ya pagado). Positivo: a favor del propietario. Negativo: a favor de BLÜM. Toca una propiedad para ver el detalle, cerrar el mes o imprimir el reporte.</p></div>
       </section>
 
       <section id="m-prox" class="oculto">
@@ -1349,7 +1349,7 @@ function pintarCaja(r){
 let liqDatos = null;
 const LIQ_INICIO = '2026-10';
 function mesTxt(p){ return MESL[Number(p.slice(5,7))-1]+' '+p.slice(0,4); }
-function saldoTxt(v){ return v>0 ? 'A pagar al propietario' : v<0 ? 'El propietario debe' : 'En cero'; }
+function saldoTxt(v){ return v>0 ? 'A favor del propietario' : v<0 ? 'A favor de BLÜM' : 'En cero'; }
 /* Filtros con casillas: varios meses y varias propiedades (se recuerdan en este navegador) */
 const LIQ_SEL = 'blumos_liq_sel';
 let liqSel = null, liqCache = {}, liqTurno = 0, liqPend = {};
@@ -1440,8 +1440,8 @@ function pintarLiquidaciones(){
   $('lKpis').innerHTML = [
     { t:'Ingresos de reservas', v:cop(s('ingresos')), h:s('noches')+' noches'+(varios?' · '+meses.length+' meses':'') },
     { t:'Comisión BLÜM', v:cop(s('comision')), h:'Según el contrato de cada propiedad' },
-    { t:'A pagar a propietarios', v:cop(aPagar), h:U.filter(x=>x.saldo_final>0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') },
-    { t:'Por cobrar a propietarios', v:cop(aCobrar), h:U.filter(x=>x.saldo_final<0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') }
+    { t:'Saldo a favor de propietarios', v:cop(aPagar), h:U.filter(x=>x.saldo_final>0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') },
+    { t:'Saldo a favor de BLÜM', v:cop(aCobrar), h:U.filter(x=>x.saldo_final<0).length+' propiedad(es)'+(varios?' · saldo al último mes elegido':'') }
   ].map(x => '<div class="kpi"><div class="eti">'+esc(x.t)+'</div><div class="v">'+x.v+'</div><div class="h">'+esc(x.h)+'</div></div>').join('');
   const fila = x => '<tr class="click" data-p="'+esc(x.propiedad_id)+'" data-m="'+esc(x.periodo)+'"><td><b>'+esc(x.propiedad)+'</b><div class="eti">'+esc(x.propietario)+(varios?' · '+esc(mesTxt(x.periodo)):'')+'</div></td><td class="num-r">'+x.noches+'</td><td class="num-r">'+cop(x.ingresos)+'</td><td class="num-r">'+cop(x.comision)+'</td><td class="num-r">'+cop(x.gastos)+'</td><td class="num-r">'+cop(x.depositos)+'</td><td class="num-r">'+cop(x.saldo_anterior)+'</td><td class="num-r">'+cop(x.pagos)+'</td><td class="num-r"><b class="'+(x.saldo_final<0?'terra':'')+'">'+cop(x.saldo_final)+'</b><div class="eti">'+saldoTxt(x.saldo_final)+'</div></td><td>'+(x.cerrado?'<span class="chip ok">Cerrado</span>':'<span class="chip">Borrador</span>')+(x.avisos?'<div class="eti terra">'+x.avisos+' aviso'+(x.avisos>1?'s':'')+'</div>':'')+'</td></tr>';
   const subt = (t, F) => '<tr class="subt"><td>'+esc(t)+'</td><td class="num-r">'+F.reduce((a,x)=>a+x.noches,0)+'</td>'+['ingresos','comision','gastos','depositos'].map(c => '<td class="num-r">'+cop(F.reduce((a,x)=>a+(Number(x[c])||0),0))+'</td>').join('')+'<td></td><td class="num-r">'+cop(F.reduce((a,x)=>a+(Number(x.pagos)||0),0))+'</td><td></td><td></td></tr>';
@@ -1449,7 +1449,7 @@ function pintarLiquidaciones(){
   if (varios) meses.forEach(m => { const F = filas.filter(x => x.periodo===m); if (F.length) cuerpo += F.map(fila).join('') + subt('Total '+mesTxt(m), F); });
   else cuerpo = filas.map(fila).join('');
   if (filas.length > 1) cuerpo += subt(varios ? 'Total de los '+meses.length+' meses' : 'Total', filas);
-  $('lTabla').innerHTML = filas.length ? '<table class="tabla"><tr><th>Propiedad</th><th class="num-r">Noches</th><th class="num-r">Ingresos</th><th class="num-r">Comisión</th><th class="num-r">Gastos</th><th class="num-r">Depósitos</th><th class="num-r">Saldo anterior</th><th class="num-r">Pagos</th><th class="num-r">Saldo final</th><th>Estado</th></tr>'+cuerpo+'</table>'
+  $('lTabla').innerHTML = filas.length ? '<table class="tabla"><tr><th>Propiedad</th><th class="num-r">Noches</th><th class="num-r">Ingresos</th><th class="num-r">Comisión</th><th class="num-r">Gastos</th><th class="num-r">Depósitos</th><th class="num-r">Saldo acum. anterior</th><th class="num-r">Pagos</th><th class="num-r">Saldo acumulado</th><th>Estado</th></tr>'+cuerpo+'</table>'
     : '<div class="vacio">'+(liqSel.props && !liqSel.props.length ? 'Marca al menos una propiedad' : 'No hay propiedades con actividad en la selección')+'</div>';
   $('lTabla').querySelectorAll('tr[data-p]').forEach(t => t.onclick = () => verLiquidacion(t.dataset.p, t.dataset.m));
 }
@@ -1466,11 +1466,13 @@ function htmlLiquidacion(L){
     '<h3 class="tit-card" style="margin-top:14px">Gastos a cargo del propietario</h3>'+lista(L.gastos)+
     (L.depositos.length?'<h3 class="tit-card" style="margin-top:14px">Depósitos del propietario</h3>'+lista(L.depositos):'')+
     (L.pagos.length?'<h3 class="tit-card" style="margin-top:14px">Pagos al propietario en el mes</h3>'+lista(L.pagos):'')+
-    '<div class="liq-tot">'+fila('Ingresos de reservas', cop(L.ingresos))+fila('− Comisión BLÜM'+(pct?' ('+pct+' %)':''), cop(L.comision))+
-    (L.cobrado_propietario?fila('− Cobrado directo por el propietario', cop(L.cobrado_propietario)):'')+fila('− Gastos a cargo del propietario', cop(L.total_gastos))+
-    (L.total_depositos?fila('+ Depósitos del propietario', cop(L.total_depositos)):'')+fila('= Resultado del mes', cop(L.resultado_mes), 'fin')+
-    fila('+ Saldo anterior'+(L.anterior_cerrado?'':' (provisional)'), cop(L.saldo_anterior))+fila('− Pagos al propietario en el mes', cop(L.total_pagos))+
-    fila('= Saldo final · '+saldoTxt(L.saldo_final), cop(L.saldo_final), 'fin'+(L.saldo_final<0?' terra':''))+'</div>';
+    '<div class="liq-tot">'+fila('Ingresos por reservas (neto de plataforma)', cop(L.ingresos))+fila('− Administración BLÜM'+(pct?' ('+pct+' %)':''), cop(L.comision))+
+    fila('= Margen de contribución', cop(L.ingresos - L.comision), 'fin')+
+    (L.cobrado_propietario?fila('− Cobrado directo por el propietario', cop(L.cobrado_propietario)):'')+fila('− Gastos operativos a cargo del propietario', cop(L.total_gastos))+
+    (L.total_depositos?fila('+ Depósitos del propietario', cop(L.total_depositos)):'')+fila('= Saldo del periodo ('+mesTxt(L.periodo)+')', cop(L.resultado_mes), 'fin')+
+    fila('+ Saldo acumulado anterior (a '+mesTxt(mesAnteriorTxt(L.periodo))+')'+(L.anterior_cerrado?'':' · provisional'), cop(L.saldo_anterior))+
+    (L.total_pagos?fila('− Pagos al propietario en '+mesTxt(L.periodo), cop(L.total_pagos)):'')+
+    fila('= Saldo acumulado '+saldoTxt(L.saldo_final).toLowerCase()+' (a '+mesTxt(L.periodo)+')', cop(Math.abs(L.saldo_final)), 'fin'+(L.saldo_final<0?' terra':''))+'</div>';
 }
 async function verLiquidacion(pid, periodo){
   let L; try { L = await api('liquidacion', { propiedad_id: pid, periodo }); } catch(e){ return toast(e.message, true); }
