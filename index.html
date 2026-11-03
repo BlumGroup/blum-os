@@ -588,7 +588,7 @@ async function api(accion, datos){
 /* ───── sesión ───── */
 function cerrarSesion(){
   if (token) fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ accion:'logout', token }) }).catch(()=>{});
-  token = null; sesion = null; dir = null; cat = null;
+  token = null; sesion = null; dir = null; cat = null; liqSel = null; liqCache = {}; liqPend = {};
   try { Object.keys(localStorage).filter(k => k.indexOf('blumos_') === 0).forEach(k => localStorage.removeItem(k)); } catch(e){}
   $('vApp').classList.add('oculto'); $('vLogin').classList.remove('oculto');
 }
@@ -1352,7 +1352,7 @@ function mesTxt(p){ return MESL[Number(p.slice(5,7))-1]+' '+p.slice(0,4); }
 function saldoTxt(v){ return v>0 ? 'A pagar al propietario' : v<0 ? 'El propietario debe' : 'En cero'; }
 /* Filtros con casillas: varios meses y varias propiedades (se recuerdan en este navegador) */
 const LIQ_SEL = 'blumos_liq_sel';
-let liqSel = null, liqCache = {}, liqTurno = 0;
+let liqSel = null, liqCache = {}, liqTurno = 0, liqPend = {};
 function mesesLiq(){
   const h = hoy().slice(0,7), ms = []; let p = LIQ_INICIO;
   while (p <= h) { ms.push(p); const y=Number(p.slice(0,4)), m=Number(p.slice(5,7)); p = m===12 ? (y+1)+'-01' : y+'-'+String(m+1).padStart(2,'0'); }
@@ -1370,7 +1370,13 @@ function iniciarFiltrosLiq(){
     ms.map(x => '<label><input type="checkbox" value="'+x+'"'+(liqSel.meses.indexOf(x)>=0?' checked':'')+'> '+esc(mesTxt(x))+(x===h?' (en curso)':'')+'</label>').join('');
   $('lMeses').onchange = e => {
     const cajas = [...$('lMeses').querySelectorAll('input[value]')];
-    if (e.target.dataset.todos) cajas.forEach(c => c.checked = e.target.checked ? true : c.value === liqSel.def);   // desmarcar "todos" deja el mes por defecto
+    if (e.target.dataset.todos) {
+      if (!e.target.checked) {   // desmarcar "Todos" no cambia nada: las casillas siguen mostrando la selección vigente
+        cajas.forEach(c => c.checked = liqSel.meses.indexOf(c.value) >= 0);
+        e.target.checked = liqSel.meses.length === cajas.length; return;
+      }
+      cajas.forEach(c => c.checked = true);
+    }
     let sel = cajas.filter(c => c.checked).map(c => c.value);
     if (!sel.length) { e.target.checked = true; sel = [e.target.value]; toast('Elige al menos un mes', true); }
     $('lMeses').querySelector('[data-todos]').checked = sel.length === cajas.length;
@@ -1378,7 +1384,7 @@ function iniciarFiltrosLiq(){
   };
   document.addEventListener('click', e => { document.querySelectorAll('details.multi[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 }
-function guardarSelLiq(){ lsSet(LIQ_SEL, JSON.stringify(liqSel)); }
+function guardarSelLiq(){ lsSet(LIQ_SEL, JSON.stringify({ meses: liqSel.meses, props: liqSel.props })); }
 function pintarFiltroProps(todas){
   const marcada = id => !liqSel.props.length || liqSel.props.indexOf(id) >= 0;
   $('lProps').innerHTML = '<label class="todas"><input type="checkbox" data-todos="p"'+(!liqSel.props.length?' checked':'')+'> Todas</label>' +
@@ -1398,18 +1404,25 @@ function pintarFiltroProps(todas){
 }
 async function cargarLiquidaciones(forzar){
   iniciarFiltrosLiq();
-  if (forzar) liqCache = {};
+  if (forzar) { liqCache = {}; liqPend = {}; }
   const n = liqSel.meses.length;
   $('lMesesT').textContent = n===1 ? mesTxt(liqSel.meses[0]) : n+' meses';
   const turno = ++liqTurno;          // solo pinta la carga más reciente (cambios rápidos o volver al módulo)
   $('lTabla').innerHTML = esqueleto(3); $('lKpis').innerHTML = ''; $('lResumen').textContent = '';
   const faltan = liqSel.meses.filter(m => !liqCache[m]);
-  const rs = await Promise.allSettled(faltan.map(m => api('liquidaciones', { periodo: m })));
+  // un mes que ya se está pidiendo no se vuelve a pedir
+  const rs = await Promise.allSettled(faltan.map(m => liqPend[m] || (liqPend[m] = api('liquidaciones', { periodo: m }).finally(() => { delete liqPend[m]; }))));
   if (turno !== liqTurno) return;
   const fallos = [];
   rs.forEach((r, i) => { if (r.status === 'fulfilled') liqCache[faltan[i]] = r.value; else fallos.push(mesTxt(faltan[i])+': '+r.reason.message); });
-  if (fallos.length) toast('No se pudo cargar '+fallos.join(' · '), true);
-  if (!liqSel.meses.some(m => liqCache[m])) { $('lTabla').innerHTML = '<div class="vacio">'+esc(fallos.join(' · '))+'</div>'; return; }
+  if (fallos.length) {   // si falla algún mes no se muestran datos parciales
+    $('lTabla').innerHTML = '<div class="vacio">No se pudo cargar '+esc(fallos.join(' · '))+'. Intenta de nuevo o quita ese mes.</div>';
+    $('lKpis').innerHTML = ''; $('lResumen').textContent = ''; return;
+  }
+  if (liqSel.primeraCarga !== false) {   // al abrir: se descartan propiedades guardadas que ya no aparecen
+    const vistas = {}; liqSel.meses.forEach(m => liqCache[m].liquidaciones.forEach(x => { vistas[x.propiedad_id] = 1; }));
+    liqSel.props = liqSel.props.filter(id => Object.prototype.hasOwnProperty.call(vistas, id)); liqSel.primeraCarga = false; guardarSelLiq();
+  }
   pintarLiquidaciones();
 }
 function pintarLiquidaciones(){
