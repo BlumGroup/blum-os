@@ -1364,21 +1364,16 @@ function iniciarFiltrosLiq(){
   let guardado = null; try { guardado = JSON.parse(lsGet(LIQ_SEL) || 'null'); } catch(e){}
   const def = ms.find(x => x !== h) || ms[0];      // por defecto: el último mes terminado
   const lista = v => Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];   // selección guardada dañada → se ignora
-  liqSel = { meses: lista(guardado && guardado.meses).filter(x => ms.indexOf(x) >= 0), props: lista(guardado && guardado.props), def: def };
-  if (!liqSel.meses.length) liqSel.meses = [def];
+  const gp = guardado && guardado.props;
+  liqSel = { meses: lista(guardado && guardado.meses).filter(x => ms.indexOf(x) >= 0),
+    props: Array.isArray(gp) && gp.length ? lista(gp) : null, def: def };          // props: null = todas · [] = ninguna
+  if (!liqSel.meses.length) liqSel.meses = [def];   // al abrir siempre hay al menos un mes
   $('lMeses').innerHTML = '<label class="todas"><input type="checkbox" data-todos="m"'+(liqSel.meses.length===ms.length?' checked':'')+'> Todos los meses</label>' +
     ms.map(x => '<label><input type="checkbox" value="'+x+'"'+(liqSel.meses.indexOf(x)>=0?' checked':'')+'> '+esc(mesTxt(x))+(x===h?' (en curso)':'')+'</label>').join('');
   $('lMeses').onchange = e => {
     const cajas = [...$('lMeses').querySelectorAll('input[value]')];
-    if (e.target.dataset.todos) {
-      if (!e.target.checked) {   // desmarcar "Todos" no cambia nada: las casillas siguen mostrando la selección vigente
-        cajas.forEach(c => c.checked = liqSel.meses.indexOf(c.value) >= 0);
-        e.target.checked = liqSel.meses.length === cajas.length; return;
-      }
-      cajas.forEach(c => c.checked = true);
-    }
-    let sel = cajas.filter(c => c.checked).map(c => c.value);
-    if (!sel.length) { e.target.checked = true; sel = [e.target.value]; toast('Elige al menos un mes', true); }
+    if (e.target.dataset.todos) cajas.forEach(c => c.checked = e.target.checked);   // "Todos" marca y desmarca todo
+    const sel = cajas.filter(c => c.checked).map(c => c.value);
     $('lMeses').querySelector('[data-todos]').checked = sel.length === cajas.length;
     liqSel.meses = sel; guardarSelLiq(); cargarLiquidaciones();
   };
@@ -1386,27 +1381,27 @@ function iniciarFiltrosLiq(){
 }
 function guardarSelLiq(){ lsSet(LIQ_SEL, JSON.stringify({ meses: liqSel.meses, props: liqSel.props })); }
 function pintarFiltroProps(todas){
-  const marcada = id => !liqSel.props.length || liqSel.props.indexOf(id) >= 0;
-  $('lProps').innerHTML = '<label class="todas"><input type="checkbox" data-todos="p"'+(!liqSel.props.length?' checked':'')+'> Todas</label>' +
+  const marcada = id => !liqSel.props || liqSel.props.indexOf(id) >= 0;
+  $('lProps').innerHTML = '<label class="todas"><input type="checkbox" data-todos="p"'+(!liqSel.props?' checked':'')+'> Todas</label>' +
     todas.map(p => '<label><input type="checkbox" value="'+esc(p.id)+'"'+(marcada(p.id)?' checked':'')+'> '+esc(p.nombre)+'</label>').join('');
   $('lProps').onchange = e => {
     const cajas = [...$('lProps').querySelectorAll('input[value]')];
     if (e.target.dataset.todos) cajas.forEach(c => c.checked = e.target.checked);
     const sel = cajas.filter(c => c.checked).map(c => c.value);
-    const fuera = liqSel.props.filter(id => !cajas.some(c => c.value === id));   // elegidas que no tienen datos en estos meses: se conservan
-    if (!sel.length && !fuera.length) { cajas.forEach(c => c.checked = true); liqSel.props = []; }
-    else liqSel.props = (sel.length === cajas.length && !fuera.length) ? [] : sel.concat(fuera);
-    $('lProps').querySelector('[data-todos]').checked = !liqSel.props.length;
+    const fuera = (liqSel.props || []).filter(id => !cajas.some(c => c.value === id));   // elegidas sin datos en estos meses: se conservan
+    liqSel.props = (sel.length === cajas.length && !fuera.length) ? null : sel.concat(fuera);   // "Todas" desmarcada deja ninguna
+    $('lProps').querySelector('[data-todos]').checked = !liqSel.props;
     guardarSelLiq(); pintarLiquidaciones();
   };
-  const n = liqSel.props.length;
-  $('lPropsT').textContent = 'Propiedades: ' + (!n ? 'todas' : n===1 ? ((todas.find(p => p.id===liqSel.props[0])||{}).nombre || '1 elegida') : n+' elegidas');
+  const n = liqSel.props ? liqSel.props.length : -1;
+  $('lPropsT').textContent = 'Propiedades: ' + (n < 0 ? 'todas' : n===0 ? 'ninguna' : n===1 ? ((todas.find(p => p.id===liqSel.props[0])||{}).nombre || '1 elegida') : n+' elegidas');
 }
 async function cargarLiquidaciones(forzar){
   iniciarFiltrosLiq();
   if (forzar) { liqCache = {}; liqPend = {}; }
   const n = liqSel.meses.length;
-  $('lMesesT').textContent = n===1 ? mesTxt(liqSel.meses[0]) : n+' meses';
+  $('lMesesT').textContent = n===0 ? 'Ningún mes' : n===1 ? mesTxt(liqSel.meses[0]) : n+' meses';
+  if (!n) { ++liqTurno; $('lTabla').innerHTML = '<div class="vacio">Marca al menos un mes</div>'; $('lKpis').innerHTML = ''; $('lResumen').textContent = ''; return; }
   const turno = ++liqTurno;          // solo pinta la carga más reciente (cambios rápidos o volver al módulo)
   $('lTabla').innerHTML = esqueleto(3); $('lKpis').innerHTML = ''; $('lResumen').textContent = '';
   const faltan = liqSel.meses.filter(m => !liqCache[m]);
@@ -1421,7 +1416,8 @@ async function cargarLiquidaciones(forzar){
   }
   if (liqSel.primeraCarga !== false) {   // al abrir: se descartan propiedades guardadas que ya no aparecen
     const vistas = {}; liqSel.meses.forEach(m => liqCache[m].liquidaciones.forEach(x => { vistas[x.propiedad_id] = 1; }));
-    liqSel.props = liqSel.props.filter(id => Object.prototype.hasOwnProperty.call(vistas, id)); liqSel.primeraCarga = false; guardarSelLiq();
+    if (liqSel.props && liqSel.props.length) { liqSel.props = liqSel.props.filter(id => Object.prototype.hasOwnProperty.call(vistas, id)); if (!liqSel.props.length) liqSel.props = null; }
+    liqSel.primeraCarga = false; guardarSelLiq();
   }
   pintarLiquidaciones();
 }
@@ -1430,7 +1426,7 @@ function pintarLiquidaciones(){
   // propiedades disponibles: las que aparecen en cualquiera de los meses elegidos
   const vistas = {}; meses.forEach(m => liqCache[m].liquidaciones.forEach(x => { vistas[x.propiedad_id] = x.propiedad; }));
   pintarFiltroProps(Object.keys(vistas).map(id => ({ id, nombre: vistas[id] })).sort((a,b) => a.nombre.localeCompare(b.nombre)));
-  const ok = x => !liqSel.props.length || liqSel.props.indexOf(x.propiedad_id) >= 0;
+  const ok = x => !liqSel.props || liqSel.props.indexOf(x.propiedad_id) >= 0;
   const filas = []; meses.forEach(m => liqCache[m].liquidaciones.filter(ok).forEach(x => filas.push(Object.assign({ periodo: m }, x))));
   liqDatos = { meses, filas };
   const s = c => filas.reduce((t,x)=>t+(Number(x[c])||0),0);
@@ -1454,7 +1450,7 @@ function pintarLiquidaciones(){
   else cuerpo = filas.map(fila).join('');
   if (filas.length > 1) cuerpo += subt(varios ? 'Total de los '+meses.length+' meses' : 'Total', filas);
   $('lTabla').innerHTML = filas.length ? '<table class="tabla"><tr><th>Propiedad</th><th class="num-r">Noches</th><th class="num-r">Ingresos</th><th class="num-r">Comisión</th><th class="num-r">Gastos</th><th class="num-r">Depósitos</th><th class="num-r">Saldo anterior</th><th class="num-r">Pagos</th><th class="num-r">Saldo final</th><th>Estado</th></tr>'+cuerpo+'</table>'
-    : '<div class="vacio">No hay propiedades con actividad en la selección</div>';
+    : '<div class="vacio">'+(liqSel.props && !liqSel.props.length ? 'Marca al menos una propiedad' : 'No hay propiedades con actividad en la selección')+'</div>';
   $('lTabla').querySelectorAll('tr[data-p]').forEach(t => t.onclick = () => verLiquidacion(t.dataset.p, t.dataset.m));
 }
 function tablaLiq(cols, filas){ return filas.length ? '<div class="tabla-wrap"><table class="tabla"><tr>'+cols.map(c=>'<th'+(c.n?' class="num-r"':'')+'>'+esc(c.t)+'</th>').join('')+'</tr>'+filas.join('')+'</table></div>' : '<div class="eti">Ninguno</div>'; }
