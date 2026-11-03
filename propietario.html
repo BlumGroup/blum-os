@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal de propietarios · BLÜM GROUP</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#2C2C2C; --cream:#F6F4F0; --cream2:#ECE7DF; --paper:#FFFFFF;
+  --sage:#6B8E6B; --sage-l:#E7EFE7; --terra:#B08968; --terra-l:#F3ECE4;
+  --line:rgba(26,23,20,.12); --muted:rgba(26,23,20,.58); --red:#B42318; --red-l:#FDE8E7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--cream);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-feature-settings:'tnum' 1;font-size:15px}
+button,input{font:inherit;color:inherit}
+.oculto{display:none!important}
+.cab{background:var(--ink);color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.marca{font-weight:700;letter-spacing:3px;font-size:1.25rem}.marca span{color:var(--terra)}
+.marca small{display:block;font-size:.58rem;letter-spacing:2.2px;text-transform:uppercase;color:#A8A39C;font-weight:500;margin-top:3px}
+.cab .acc{display:flex;gap:8px;align-items:center}
+.franja{height:4px;background:var(--sage)}
+.envoltura{max-width:880px;margin:0 auto;padding:22px 16px 60px}
+.eti{font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:1.5rem;font-weight:700;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:.9rem}
+.btn{background:var(--ink);color:#fff;border:0;border-radius:8px;padding:11px 18px;font-weight:600;cursor:pointer}
+.btn.sec{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn.claro{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;padding:7px 12px;font-size:.8rem}
+.btn:disabled{opacity:.5;cursor:default}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:14px}
+.tit-card{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--terra);font-weight:700;margin-bottom:10px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+.kpi{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .v{font-size:1.25rem;font-weight:700;margin-top:6px}.kpi .h{font-size:.74rem;color:var(--muted);margin-top:3px}
+.verde{color:var(--sage)}.terra{color:var(--terra)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+.tabs button{border:1px solid var(--line);background:var(--paper);border-radius:20px;padding:7px 14px;cursor:pointer;font-size:.85rem}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.fila{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.fila:last-child{border-bottom:0}
+.fila.click{cursor:pointer}.fila.click:hover{background:var(--cream)}
+.fila .t1{font-weight:600}.fila .t2{font-size:.8rem;color:var(--muted);margin-top:2px}
+.num{text-align:right;white-space:nowrap}
+.chip{display:inline-block;font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:20px;border:1px solid var(--sage);color:var(--sage)}
+.vacio{color:var(--muted);font-size:.9rem;padding:8px 0}
+.login{max-width:380px;margin:40px auto;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:26px}
+label{display:block;font-size:.8rem;color:var(--muted);margin:14px 0 6px}
+input{width:100%;border:1px solid var(--line);border-radius:8px;padding:11px 12px;background:#fff}
+.err{background:var(--red-l);color:var(--red);border-radius:8px;padding:10px 12px;font-size:.85rem;margin-top:12px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:24px 12px;overflow-y:auto}
+.modal .caja{background:var(--cream);border-radius:14px;width:100%;max-width:780px;padding:18px}
+.modal .mcab{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.modal .mcab h2{font-size:1.05rem}
+.cerrar{background:none;border:0;font-size:1.6rem;cursor:pointer;line-height:1}
+iframe.rep{width:100%;height:70vh;border:1px solid var(--line);border-radius:10px;background:#fff}
+.sop{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.esq{height:56px;border-radius:10px;background:linear-gradient(90deg,var(--cream2),#f2eee8,var(--cream2));background-size:200% 100%;animation:b 1.2s infinite;margin-top:10px}
+@keyframes b{to{background-position:-200% 0}}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:.88rem;z-index:60;max-width:92vw}
+.toast.e{background:var(--red)}
+.pie{font-size:.7rem;color:var(--muted);text-align:center;margin-top:30px}
+@media (max-width:640px){ .kpis{grid-template-columns:repeat(2,1fr)} h1{font-size:1.25rem} .cab{padding:14px 16px} }
+</style>
+</head>
+<body>
+<header class="cab">
+  <div class="marca">BLÜM<span> GROUP</span><small>Portal de propietarios</small></div>
+  <div class="acc oculto" id="cabAcc"><button class="btn claro" id="bClave">Contraseña</button><button class="btn claro" id="bSalir">Salir</button></div>
+</header>
+<div class="franja"></div>
+
+<main class="envoltura">
+  <section id="vLogin" class="oculto">
+    <form class="login" id="fLogin" autocomplete="on">
+      <div class="eti">Bienvenido(a)</div>
+      <h1>Entra a tu portal</h1>
+      <p class="sub">Usa el correo y la contraseña que te enviamos.</p>
+      <label for="lCorreo">Correo</label><input id="lCorreo" type="email" autocomplete="username" required>
+      <label for="lClave">Contraseña</label><input id="lClave" type="password" autocomplete="current-password" required>
+      <div id="lErr" class="err oculto"></div>
+      <button class="btn" style="width:100%;margin-top:18px" id="bEntrar">Entrar</button>
+      <p class="sub" style="margin-top:14px;font-size:.8rem">¿Olvidaste tu contraseña? Escríbenos por WhatsApp al +57 322 276 5361 y te enviamos una nueva.</p>
+    </form>
+  </section>
+
+  <section id="vPortal" class="oculto">
+    <div class="eti" id="pFecha"></div>
+    <h1 id="pHola"></h1>
+    <div class="tabs" id="pProps"></div>
+    <div id="pCuerpo"></div>
+  </section>
+  <p class="pie">BLÜM GROUP S.A.S. · NIT 901427390-1 · Barranquilla, Colombia</p>
+</main>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbwt5x81bCGOct0KiRp6FHATvAnsmUTyyYwYmK-PYe9TIb8PcGbU_aDkLLci7bDTX8SX/exec';
+const LS_TOK = 'blump_tok';
+const MESL = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MESC = ['ene','feb','mar','abr','may','jun','jul','ago','sept','oct','nov','dic'];
+const DSEM = ['dom','lun','mar','mié','jue','vie','sáb'];
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const cop = n => { const v = Math.round(Number(n) || 0); return (v < 0 ? '-$' : '$') + Math.abs(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+const mesTxt = p => MESL[Number(p.slice(5,7)) - 1] + ' ' + p.slice(0,4);
+const fecha = s => { const [y,m,d] = s.split('-').map(Number); const f = new Date(y, m-1, d); return DSEM[f.getDay()] + ' ' + d + ' ' + MESC[m-1]; };
+function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function lsSet(k, v){ try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch(e){} }
+function toast(t, e){ const x = document.createElement('div'); x.className = 'toast' + (e ? ' e' : ''); x.textContent = t; document.body.appendChild(x); setTimeout(() => x.remove(), e ? 5000 : 2600); }
+let token = lsGet(LS_TOK), datos = null, actual = null;
+
+async function api(accion, d){
+  let r, j;
+  try { r = await fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body: JSON.stringify({ accion, token, datos: d || {} }) }); }
+  catch(e){ throw new Error('Sin conexión. Revisa tu internet e intenta de nuevo.'); }
+  try { j = await r.json(); } catch(e){ throw new Error('El servicio no respondió bien. Intenta en un minuto.'); }
+  if (j.sesion === false) { salir(true); throw new Error(j.error || 'Sesión vencida'); }
+  if (!j.ok) throw new Error(j.error || 'Error');
+  return j;
+}
+function vista(v){ $('vLogin').classList.toggle('oculto', v !== 'login'); $('vPortal').classList.toggle('oculto', v !== 'portal'); $('cabAcc').classList.toggle('oculto', v !== 'portal'); }
+function salir(silencioso){
+  if (token && !silencioso) fetch(API_URL, { method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body: JSON.stringify({ accion:'p_logout', token }) }).catch(() => {});
+  token = null; datos = null; lsSet(LS_TOK, null); cerrarModal(); vista('login');
+}
+
+/* ── login ── */
+$('fLogin').onsubmit = async e => {
+  e.preventDefault();
+  const b = $('bEntrar'); b.disabled = true; $('lErr').classList.add('oculto');
+  try {
+    const r = await api('p_login', { correo: $('lCorreo').value.trim(), clave: $('lClave').value });
+    token = r.token; lsSet(LS_TOK, token); $('lClave').value = ''; await cargar();
+  } catch(err){ $('lErr').textContent = err.message; $('lErr').classList.remove('oculto'); }
+  b.disabled = false;
+};
+$('bSalir').onclick = () => salir();
+
+/* ── portal ── */
+async function cargar(){
+  vista('portal'); $('pCuerpo').innerHTML = '<div class="esq"></div><div class="esq"></div><div class="esq"></div>';
+  try { datos = await api('p_resumen'); } catch(e){ if (token) $('pCuerpo').innerHTML = '<div class="card vacio">' + esc(e.message) + '</div>'; return; }
+  const h = new Date();
+  $('pFecha').textContent = DSEM[h.getDay()] + ' ' + h.getDate() + ' de ' + MESL[h.getMonth()] + ' de ' + h.getFullYear();
+  $('pHola').textContent = 'Hola, ' + (datos.nombre || '').split(' ')[0];
+  if (!datos.propiedades.length) { $('pProps').innerHTML = ''; $('pCuerpo').innerHTML = '<div class="card vacio">Todavía no hay propiedades activas en tu cuenta.</div>'; return; }
+  if (!actual || !datos.propiedades.some(p => p.id === actual)) actual = datos.propiedades[0].id;
+  $('pProps').innerHTML = datos.propiedades.length > 1 ? datos.propiedades.map(p => '<button data-p="' + esc(p.id) + '" class="' + (p.id === actual ? 'on' : '') + '">' + esc(p.nombre) + '</button>').join('') : '';
+  $('pProps').querySelectorAll('button').forEach(b => b.onclick = () => { actual = b.dataset.p; cargarVista(); });
+  cargarVista();
+}
+function cargarVista(){
+  $('pProps').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === actual));
+  const P = datos.propiedades.find(p => p.id === actual);
+  const U = P.ultimo;
+  const favor = P.saldo > 0 ? 'A tu favor' : P.saldo < 0 ? 'A favor de BLÜM GROUP' : 'En cero';
+  const kpis = [
+    { t:'Saldo acumulado', v: cop(Math.abs(P.saldo)), h: favor + (U ? ' · a ' + mesTxt(U.periodo) : ''), c: P.saldo < 0 ? 'terra' : 'verde' },
+    { t:'Último cierre', v: U ? cop(U.resultado_mes) : '—', h: U ? 'Saldo del periodo · ' + mesTxt(U.periodo) : 'Aún no hay cierres' },
+    { t:'Ocupación', v: U ? U.ocupacion + ' %' : '—', h: U ? U.noches + ' noches en ' + MESL[Number(U.periodo.slice(5,7)) - 1] : '' },
+    { t:'Próximas reservas', v: String(P.proximas.filter(r => !r.en_curso).length), h: P.proximas.some(r => r.en_curso) ? 'Hay huéspedes ahora' : 'Próximos 4 meses' }
+  ];
+  $('pCuerpo').innerHTML =
+    '<div class="kpis">' + kpis.map(k => '<div class="kpi"><div class="eti">' + esc(k.t) + '</div><div class="v ' + (k.c || '') + '">' + esc(k.v) + '</div><div class="h">' + esc(k.h) + '</div></div>').join('') + '</div>' +
+    '<div class="card"><div class="tit-card">Informes de cierre</div>' +
+      (P.informes.length ? P.informes.map(i => '<div class="fila click" data-m="' + esc(i.periodo) + '"><div><div class="t1">' + esc(mesTxt(i.periodo).replace(/^./, c => c.toUpperCase())) + '</div><div class="t2">' + i.noches + ' noches · ingresos ' + cop(i.ingresos) + ' · gastos ' + cop(i.gastos) + '</div></div>' +
+        '<div class="num"><div class="t1 ' + (i.resultado_mes < 0 ? 'terra' : '') + '">' + cop(i.resultado_mes) + '</div><div class="t2">Ver informe ›</div></div></div>').join('')
+        : '<div class="vacio">Tu primer informe aparecerá aquí cuando cerremos el mes.</div>') + '</div>' +
+    '<div class="card"><div class="tit-card">Reservas en curso y próximas</div>' +
+      (P.proximas.length ? P.proximas.map(r => '<div class="fila"><div><div class="t1">' + esc(fecha(r.checkin)) + ' → ' + esc(fecha(r.checkout)) + (r.en_curso ? ' <span class="chip">En curso</span>' : '') + '</div><div class="t2">' + r.noches + ' noche' + (r.noches > 1 ? 's' : '') + (r.personas ? ' · ' + r.personas + ' huésped' + (r.personas > 1 ? 'es' : '') : '') + ' · ' + esc(r.plataforma) + '</div></div><div class="num t2">' + esc(r.huesped) + '</div></div>').join('')
+        : '<div class="vacio">No hay reservas próximas registradas.</div>') + '</div>';
+  $('pCuerpo').querySelectorAll('.fila.click').forEach(f => f.onclick = () => verInforme(actual, f.dataset.m));
+}
+
+/* ── informe ── */
+function modal(titulo, html){
+  cerrarModal();
+  const m = document.createElement('div'); m.className = 'modal'; m.id = 'modal';
+  m.innerHTML = '<div class="caja"><div class="mcab"><h2>' + esc(titulo) + '</h2><button class="cerrar" aria-label="Cerrar">×</button></div>' + html + '</div>';
+  document.body.appendChild(m);
+  m.querySelector('.cerrar').onclick = cerrarModal; m.addEventListener('click', e => { if (e.target === m) cerrarModal(); });
+  return m;
+}
+function cerrarModal(){ const m = $('modal'); if (m) m.remove(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarModal(); });
+
+async function verInforme(pid, periodo){
+  const m = modal('Informe de ' + mesTxt(periodo), '<div class="esq" style="height:300px"></div>');
+  let r; try { r = await api('p_informe', { propiedad_id: pid, periodo }); } catch(e){ m.querySelector('.esq').outerHTML = '<div class="err">' + esc(e.message) + '</div>'; return; }
+  m.querySelector('.caja').innerHTML = '<div class="mcab"><h2>' + esc(r.propiedad) + ' · ' + esc(mesTxt(periodo)) + '</h2><button class="cerrar" aria-label="Cerrar">×</button></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="btn sec" id="bPdf">Descargar / imprimir PDF</button></div>' +
+    '<iframe class="rep" sandbox="" id="repFr"></iframe>' +
+    '<div class="card"><div class="tit-card">Soportes</div>' + (r.soportes.length ? r.soportes.map(s => '<div class="sop"><div><div>' + esc(s.movimiento) + '</div><div class="eti">' + esc(s.nombre) + '</div></div><button class="btn sec" data-s="' + esc(s.id) + '">Ver</button></div>').join('') : '<div class="vacio">Este informe no tiene soportes adjuntos.</div>') + '</div>';
+  m.querySelector('.cerrar').onclick = cerrarModal;
+  m.querySelector('#repFr').srcdoc = r.html;
+  m.querySelector('#bPdf').onclick = () => { const w = window.open('', '_blank'); if (!w) return toast('Permite ventanas emergentes para descargar', true); w.document.write(r.html); w.document.close(); w.focus(); setTimeout(() => w.print(), 400); };
+  m.querySelectorAll('[data-s]').forEach(b => b.onclick = () => verSoporte(pid, periodo, b.dataset.s, b));
+}
+async function verSoporte(pid, periodo, id, b){
+  const w = window.open('', '_blank');   // se abre ya (los navegadores bloquean ventanas abiertas después de esperar)
+  b.disabled = true;
+  try {
+    const r = await api('p_soporte', { propiedad_id: pid, periodo, id });
+    const bin = atob(r.base64), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const tipo = /^(image\/(jpeg|jpg|png|gif|webp)|application\/pdf)$/.test(r.tipo) ? r.tipo : 'application/octet-stream';   // nunca HTML/SVG
+    const url = URL.createObjectURL(new Blob([bytes], { type: tipo }));
+    if (w) w.location = url; else location.href = url;
+  } catch(e){ if (w) w.close(); toast(e.message, true); }
+  b.disabled = false;
+}
+
+/* ── cambiar contraseña ── */
+$('bClave').onclick = () => {
+  const m = modal('Cambiar contraseña', '<form id="fC" class="card" style="margin:0"><label>Contraseña actual</label><input type="password" name="actual" autocomplete="current-password" required>' +
+    '<label>Nueva contraseña (mínimo 8, con letras y números)</label><input type="password" name="nueva" autocomplete="new-password" required>' +
+    '<label>Repite la nueva contraseña</label><input type="password" name="nueva2" autocomplete="new-password" required><div id="cErr" class="err oculto"></div>' +
+    '<button class="btn" style="margin-top:16px">Guardar</button></form>');
+  m.querySelector('form').onsubmit = async e => {
+    e.preventDefault(); const f = e.target, err = m.querySelector('#cErr'), b = f.querySelector('button');
+    if (f.nueva.value !== f.nueva2.value) { err.textContent = 'Las contraseñas nuevas no coinciden'; err.classList.remove('oculto'); return; }
+    b.disabled = true;
+    try { await api('p_clave', { actual: f.actual.value, nueva: f.nueva.value }); cerrarModal(); toast('Contraseña actualizada ✓'); }
+    catch(x){ err.textContent = x.message; err.classList.remove('oculto'); b.disabled = false; }
+  };
+};
+
+/* ── arranque ── */
+(function(){
+  const c = new URLSearchParams(location.search).get('c');
+  if (c) $('lCorreo').value = c;
+  if (token) cargar(); else vista('login');
+})();
+</script>
+</body>
+</html>
