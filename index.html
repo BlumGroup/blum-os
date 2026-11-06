@@ -120,7 +120,7 @@ textarea{min-height:70px;resize:vertical}
 .b-por{background:var(--gold-l);color:#7d5f43}.b-ver{background:var(--sage-l);color:var(--sage)}
 .b-obs{background:var(--terra-l);color:var(--terra)}.b-anu{background:var(--cream2);color:var(--muted);text-decoration:line-through}
 .vacio{text-align:center;color:var(--muted);padding:28px 10px;font-size:.9rem}
-.totales{display:flex;gap:8px;margin-bottom:12px}
+.totales{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .totales div{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px}
 .totales b{display:block;font-family:'Inter',sans-serif;font-size:.95rem;margin-top:3px}
 .barra-acc{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -190,6 +190,10 @@ textarea{min-height:70px;resize:vertical}
 .pyg tr.res td{font-weight:700}
 .pyg tr.tot td{font-weight:700;background:var(--ink);color:#fff}.pyg tr.tot td:first-child{background:var(--ink)}
 .pyg td.l{padding-left:18px;color:var(--muted)}
+.chip-c{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:10px;background:var(--cream);white-space:nowrap}
+.chip-c.verde{background:var(--sage-l);color:var(--sage)}.chip-c.terra{background:var(--red-l);color:var(--red)}
+#rTabla{overflow-x:auto}
+.hist{font-size:.8rem;padding:8px 0;border-bottom:1px solid var(--line)}.hist div{color:var(--muted);margin-top:2px}
 .nota-p{margin-top:10px;font-size:.8rem;line-height:1.5;color:var(--muted)}
 .pyg td.pc{color:var(--muted);font-size:.78rem}
 .pyg td.est{color:var(--muted);font-style:italic}
@@ -1013,9 +1017,9 @@ function pintarReservas(rs){
   rs.forEach(r => {
     const mes=r.checkin.slice(0,7);
     if (mes!==mesAct) { if (mesAct) html+='</table>'; mesAct=mes; const d=pISO(r.checkin);
-      html+='<div class="mes-tit">'+MESL[d.getMonth()]+' '+d.getFullYear()+'</div><table class="tabla"><tr><th>Propiedad</th><th>Huésped</th><th>Llegada → Salida</th><th class="num-r">Noches</th><th class="num-r">Huéspedes</th><th>Canal</th><th class="num-r">Neto</th></tr>'; }
+      html+='<div class="mes-tit">'+MESL[d.getMonth()]+' '+d.getFullYear()+'</div><table class="tabla"><tr><th>Propiedad</th><th>Huésped</th><th>Llegada → Salida</th><th class="num-r">Noches</th><th class="num-r">Huéspedes</th><th>Canal</th><th class="num-r">Neto</th><th>Pago</th></tr>'; }
     const conAnio = r.checkin.slice(0,4)!==anioHoy || r.checkout.slice(0,4)!==r.checkin.slice(0,4);
-    html+='<tr class="click'+(r.estado_reserva==='Cancelada'?' cancel':'')+'" data-c="'+esc(r.codigo)+'"><td>'+esc(r.propiedad)+'</td><td>'+esc(r.huesped)+'</td><td class="fechas"><b>'+fechaLarga(r.checkin,conAnio)+'</b> → <b>'+fechaLarga(r.checkout,conAnio)+'</b></td><td class="num-r">'+r.noches+'</td><td class="num-r">'+(r.personas||'<span class="eti">—</span>')+'</td><td>'+esc(r.plataforma)+(r.estado_reserva==='Cancelada'?' · cancelada':'')+'</td><td class="num-r">'+cop(r.neto)+'</td></tr>';
+    html+='<tr class="click'+(r.estado_reserva==='Cancelada'?' cancel':'')+'" data-c="'+esc(r.codigo)+'"><td>'+esc(r.propiedad)+'</td><td>'+esc(r.huesped)+'</td><td class="fechas"><b>'+fechaLarga(r.checkin,conAnio)+'</b> → <b>'+fechaLarga(r.checkout,conAnio)+'</b></td><td class="num-r">'+r.noches+'</td><td class="num-r">'+(r.personas||'<span class="eti">—</span>')+'</td><td>'+esc(r.plataforma)+(r.estado_reserva==='Cancelada'?' · cancelada':'')+(r.estado_reserva==='Modificada'?' · modificada':'')+'</td><td class="num-r">'+cop(r.neto)+'</td><td>'+chipCuadre(r.cuadre)+'</td></tr>';
   });
   $('rTabla').innerHTML = html+'</table>';
   $('rTabla').querySelectorAll('tr[data-c]').forEach(t => t.onclick = () => fichaReserva(rs.find(r => r.codigo===t.dataset.c)));
@@ -1055,15 +1059,72 @@ function pintarCalendario(rs, de, ha){
   const hoyCol = Math.round((pISO(hoyS)-ini)/86400000);
   if (hoyCol>3 && hoyCol<n) $('rTabla').querySelector('.cal').scrollLeft = (hoyCol-3)*ancho;
 }
-function fichaReserva(r){
+const CUADRE = { ok:['✓ Cuadra','verde'], pendiente:['Por recibir',''], falta:['Falta pago','terra'], demas:['Pagó de más','terra'], historico:['Histórico',''], cancelada:['—',''], sin_valor:['Sin valor','terra'] };
+function chipCuadre(c){
+  if (!c) return '';
+  const x = CUADRE[c.estado] || ['',''];
+  const t = c.estado==='demas' ? 'Pagó '+cop(c.diferencia)+' de más' : c.estado==='falta' && c.recibido ? 'Falta '+cop(-c.diferencia) : x[0];
+  return '<span class="chip-c '+x[1]+'" title="Recibido '+cop(c.recibido)+(c.pagos>1?' en '+c.pagos+' pagos':'')+'">'+esc(t)+'</span>';
+}
+async function fichaReserva(r){
   if (!r) return;
   const conAnio=true;
-  modal(r.huesped, '<div class="sub">'+esc(r.codigo)+' · '+esc(r.plataforma)+'</div>'+
-    dato('Propiedad', esc(r.propiedad))+dato('Llegada', fechaLarga(r.checkin,conAnio))+dato('Salida', fechaLarga(r.checkout,conAnio))+
-    dato('Noches', r.noches)+dato('Huéspedes', r.personas||'—')+
-    (r.tarifa_noches?dato('Tarifa noches', cop(r.tarifa_noches)):'')+(r.tarifa_aseo?dato('Aseo', cop(r.tarifa_aseo)):'')+
-    dato('Neto', '<b>'+cop(r.neto)+'</b>')+dato('Pago recibido', r.pagado?cop(r.pagado):'Pendiente')+
-    dato('Estado', esc(r.estado_reserva)+' · '+esc(r.estado)), [{ t:'Cerrar', sec:true, fn:cerrarModal }]);
+  const pintar = (R, P, H) => {
+    const c = R.cuadre || {};
+    const pagos = P ? (P.length ? '<table class="tabla" style="margin-top:6px"><tr><th>Fecha</th><th>Pago</th><th class="num-r">Valor</th><th>Estado</th></tr>'+
+        P.map(p => '<tr><td>'+fechaLarga(p.fecha,true)+'</td><td>'+esc(p.tipo)+(p.detalle?'<div class="eti" style="text-transform:none;letter-spacing:0">'+esc(p.detalle.slice(0,70))+'</div>':'')+'</td><td class="num-r">'+cop(p.valor)+'</td><td>'+(p.estado==='Verificado'?'<span class="verde">✓ Confirmado</span>':esc(p.estado))+'</td></tr>').join('')+
+        '<tr class="subt"><td colspan="2">Recibido</td><td class="num-r">'+cop(c.recibido)+'</td><td></td></tr></table>' : '<div class="eti">Aún no hay pagos de esta reserva</div>') : esqueleto(1);
+    const hist = H && H.length ? '<h3 class="tit-card" style="margin-top:16px">Historial de cambios</h3>'+H.map(h => '<div class="hist"><b>'+esc(h.fecha)+'</b> · '+esc(h.usuario)+(h.despues.motivo?' · '+esc(h.despues.motivo):'')+
+        '<div>'+esc(h.antes.checkin)+' → '+esc(h.antes.checkout)+' ('+h.antes.noches+' n) · neto '+cop(h.antes.neto_total)+'  ⟶  <b>'+esc(h.despues.checkin)+' → '+esc(h.despues.checkout)+' ('+h.despues.noches+' n) · neto '+cop(h.despues.neto_total)+'</b></div></div>').join('') : '';
+    const acc = [{ t:'Cerrar', sec:true, fn:cerrarModal }];
+    if (esAdmin() && R.estado_reserva!=='Cancelada' && P) acc.unshift({ t:'Modificar reserva', fn:() => modificarReservaUI(Object.assign({ propiedad:r.propiedad }, R)) });
+    return modal(R.huesped, '<div class="sub">'+esc(R.codigo)+' · '+esc(R.plataforma)+(R.estado_reserva==='Modificada'?' · modificada':'')+'</div>'+
+      dato('Propiedad', esc(r.propiedad))+dato('Llegada', fechaLarga(R.checkin,conAnio))+dato('Salida', fechaLarga(R.checkout,conAnio))+
+      dato('Noches', R.noches)+dato('Huéspedes', R.personas||'—')+
+      (R.tarifa_noches?dato('Tarifa noches', cop(R.tarifa_noches)):'')+(R.tarifa_aseo?dato('Aseo', cop(R.tarifa_aseo)):'')+
+      (R.comision_plataforma?dato('Comisión plataforma', cop(R.comision_plataforma)):'')+
+      dato('Neto', '<b>'+cop(R.neto)+'</b>')+dato('Pagos', chipCuadre(R.cuadre))+
+      (P && !det ? '' : '<h3 class="tit-card" style="margin-top:16px">Pagos recibidos</h3>'+pagos)+hist, acc);
+  };
+  let det = true;
+  const m0 = pintar(Object.assign({}, r, { cuadre:r.cuadre }), null, null);
+  try { const x = await api('reserva', { codigo:r.codigo }); det = x.detalle_pagos !== false; if ($('modal') === m0) pintar(x.reserva, x.pagos, x.historial); }
+  catch(e){ toast(e.message, true); }
+}
+function modificarReservaUI(R){
+  const dir = R.plataforma==='Directo';
+  const m = modal('Modificar reserva', '<div class="sub">'+esc(R.codigo)+' · '+esc(R.huesped)+' · '+esc(R.propiedad||'')+'</div>'+
+    '<p class="nota-p">La reserva conserva su código. Si hay un pago adicional, llega aparte y lo confirmas en Caja; la reserva cuadra cuando la suma de pagos iguala el neto.</p>'+
+    '<div class="fila"><div><label>Llegada</label><input id="mIn" type="date" value="'+esc(R.checkin)+'"></div><div><label>Salida</label><input id="mOut" type="date" value="'+esc(R.checkout)+'"></div></div>'+
+    '<div class="eti" id="mNoches" style="margin-top:6px"></div>'+
+    '<div class="fila"><div><label>Valor noches</label><input id="mTar" inputmode="numeric" value="'+cop(R.tarifa_noches).replace('$','')+'"></div><div><label>Aseo</label><input id="mAseo" inputmode="numeric" value="'+(R.tarifa_aseo?cop(R.tarifa_aseo).replace('$',''):'')+'"></div></div>'+
+    (dir ? '' : '<div class="fila"><div><label>Comisión Airbnb</label><input id="mCom" inputmode="numeric" value="'+(R.comision_plataforma?cop(R.comision_plataforma).replace('$',''):'')+'"></div><div><label>Lo que recibe BLÜM (neto)</label><input id="mNeto" inputmode="numeric" value="'+cop(R.neto).replace('$','')+'"></div></div>')+
+    '<div class="fila"><div><label>Personas</label><input id="mPer" type="number" min="1" value="'+esc(R.personas||'')+'"></div><div style="flex:2"><label>Motivo del cambio</label><input id="mMot" maxlength="300" placeholder="Ej.: extendió 2 noches"></div></div>'+
+    '<div class="nota-p" id="mCuadre"></div><div id="mErr" class="msg-err oculto"></div>',
+    [{ t:'Guardar cambios', fn: guardar }, { t:'Cancelar', sec:true, fn:() => fichaReserva(R) }]);
+  ['mTar','mAseo','mCom','mNeto'].forEach(id => { if ($(id)) { formatearValor($(id)); $(id).addEventListener('input', revisar); } });
+  ['mIn','mOut'].forEach(id => $(id).addEventListener('change', revisar));
+  function vals(){ return { n: Math.round((pISO($('mOut').value)-pISO($('mIn').value))/86400000), t: pesosCampo($('mTar'))||0, a: pesosCampo($('mAseo'))||0, c: dir?0:(pesosCampo($('mCom'))||0), neto: dir ? (pesosCampo($('mTar'))||0)+(pesosCampo($('mAseo'))||0) : (pesosCampo($('mNeto'))||0) }; }
+  function revisar(){
+    const v = vals();
+    $('mNoches').textContent = v.n>0 ? v.n+' noche'+(v.n>1?'s':'')+(v.n!==R.noches?' (antes '+R.noches+')':'') : 'Revisa las fechas';
+    const dif = v.t+v.a-v.c-v.neto;
+    $('mCuadre').innerHTML = dir ? 'Neto: <b>'+cop(v.neto)+'</b>' : (Math.abs(dif)<=2 ? '<span class="verde">✓ Noches + aseo − comisión = neto</span>' : '<span class="terra">No cuadra por '+cop(dif)+': noches + aseo − comisión debe ser igual al neto</span>');
+    if (v.neto && R.cuadre) { const rec = R.cuadre.recibido||0; $('mCuadre').innerHTML += ' · Recibido hasta hoy '+cop(rec)+(v.neto>rec+2?' · faltará '+cop(v.neto-rec):''); }
+  }
+  async function guardar(b){
+    mostrarErr('mErr','');
+    const v = vals();
+    if (!(v.n>0)) return mostrarErr('mErr','Revisa las fechas');
+    if (!$('mMot').value.trim() || $('mMot').value.trim().length<5) return mostrarErr('mErr','Escribe el motivo del cambio');
+    b.disabled=true; b.textContent='Guardando…';
+    try {
+      await api('modificarReserva', { codigo:R.codigo, checkin:$('mIn').value, checkout:$('mOut').value, tarifa_noches:v.t, tarifa_aseo:v.a, comision_plataforma:v.c, neto_total:v.neto, personas:$('mPer').value, motivo:$('mMot').value.trim() });
+      toast('Reserva '+R.codigo+' modificada ✓'); cerrarModal(); lsDel(LS.panel); try { Object.keys(localStorage).filter(k => k.indexOf(LS.res)===0).forEach(k => lsDel(k)); } catch(e){} cargarReservas();
+    } catch(e){ mostrarErr('mErr', e.message); b.disabled=false; b.textContent='Guardar cambios'; }
+  }
+  revisar();
+  return m;
 }
 $('rDesde').addEventListener('change', () => { $('rRapidos').querySelectorAll('.chip').forEach(c=>c.classList.remove('v')); cargarReservas(); });
 $('rHasta').addEventListener('change', () => { $('rRapidos').querySelectorAll('.chip').forEach(c=>c.classList.remove('v')); cargarReservas(); });
